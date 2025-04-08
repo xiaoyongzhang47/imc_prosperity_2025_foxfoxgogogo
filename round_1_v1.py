@@ -187,15 +187,15 @@ class Trader:
             mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
             mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
             if mm_ask == None or mm_bid == None:
-                if traderObject.get("KELP_last_price", None) == None:
+                if traderObject.get("kelp_last_price", None) == None:
                     mmmid_price = (best_ask + best_bid) / 2
                 else:
-                    mmmid_price = traderObject["KELP_last_price"]
+                    mmmid_price = traderObject["kelp_last_price"]
             else:
                 mmmid_price = (mm_ask + mm_bid) / 2
 
-            if traderObject.get("KELP_last_price", None) != None:
-                last_price = traderObject["KELP_last_price"]
+            if traderObject.get("kelp_last_price", None) != None:
+                last_price = traderObject["kelp_last_price"]
                 last_returns = (mmmid_price - last_price) / last_price
                 pred_returns = (
                     last_returns * self.params[Product.KELP]["reversion_beta"]
@@ -203,7 +203,7 @@ class Trader:
                 fair = mmmid_price + (mmmid_price * pred_returns)
             else:
                 fair = mmmid_price
-            traderObject["KELP_last_price"] = mmmid_price
+            traderObject["kelp_last_price"] = mmmid_price
             return fair
         return None
 
@@ -227,15 +227,15 @@ class Trader:
             mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
             mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
             if mm_ask == None or mm_bid == None:
-                if traderObject.get("SQUIDINK_last_price", None) == None:
+                if traderObject.get("squidink_last_price", None) == None:
                     mmmid_price = (best_ask + best_bid) / 2
                 else:
-                    mmmid_price = traderObject["SQUIDINK_last_price"]
+                    mmmid_price = traderObject["squidink_last_price"]
             else:
                 mmmid_price = (mm_ask + mm_bid) / 2
 
-            if traderObject.get("SQUIDINK_last_price", None) != None:
-                last_price = traderObject["SQUIDINK_last_price"]
+            if traderObject.get("squidink_last_price", None) != None:
+                last_price = traderObject["squidink_last_price"]
                 last_returns = (mmmid_price - last_price) / last_price
                 pred_returns = (
                     last_returns * self.params[Product.SQUIDINK]["reversion_beta"]
@@ -243,7 +243,7 @@ class Trader:
                 fair = mmmid_price + (mmmid_price * pred_returns)
             else:
                 fair = mmmid_price
-            traderObject["SQUIDINK_last_price"] = mmmid_price
+            traderObject["squidink_last_price"] = mmmid_price
             return fair
         return None
 
