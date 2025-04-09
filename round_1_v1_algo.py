@@ -34,11 +34,12 @@ PARAMS = {
         "default_edge": 1,
     },
         Product.SQUIDINK: {
+        "do_trade": True,
         "take_width": 1,
         "clear_width": 0,
         "prevent_adverse": True,
-        "adverse_volume": 37,
-        "reversion_beta": -0.229,
+        "adverse_volume": 46,
+        "reversion_beta": -0.06,
         "disregard_edge": 1,
         "join_edge": 0,
         "default_edge": 1,
@@ -456,51 +457,52 @@ class Trader:
                 KELP_take_orders + KELP_clear_orders + KELP_make_orders
             )
 
-        if Product.SQUIDINK in self.params and Product.SQUIDINK in state.order_depths:
-            SQUIDINK_position = (
-                state.position[Product.SQUIDINK]
-                if Product.SQUIDINK in state.position
-                else 0
-            )
-            SQUIDINK_fair_value = self.SQUIDINK_fair_value(
-                state.order_depths[Product.SQUIDINK], traderObject
-            )
-            SQUIDINK_take_orders, buy_order_volume, sell_order_volume = (
-                self.take_orders(
-                    Product.SQUIDINK,
-                    state.order_depths[Product.SQUIDINK],
-                    SQUIDINK_fair_value,
-                    self.params[Product.SQUIDINK]["take_width"],
-                    SQUIDINK_position,
-                    self.params[Product.SQUIDINK]["prevent_adverse"],
-                    self.params[Product.SQUIDINK]["adverse_volume"],
-                )
-            )
-            SQUIDINK_clear_orders, buy_order_volume, sell_order_volume = (
-                self.clear_orders(
-                    Product.SQUIDINK,
-                    state.order_depths[Product.SQUIDINK],
-                    SQUIDINK_fair_value,
-                    self.params[Product.SQUIDINK]["clear_width"],
-                    SQUIDINK_position,
-                    buy_order_volume,
-                    sell_order_volume,
-                )
-            )
-            SQUIDINK_make_orders, _, _ = self.make_orders(
-                Product.SQUIDINK,
-                state.order_depths[Product.SQUIDINK],
-                SQUIDINK_fair_value,
-                SQUIDINK_position,
-                buy_order_volume,
-                sell_order_volume,
-                self.params[Product.SQUIDINK]["disregard_edge"],
-                self.params[Product.SQUIDINK]["join_edge"],
-                self.params[Product.SQUIDINK]["default_edge"],
-            )
-            result[Product.SQUIDINK] = (
-                SQUIDINK_take_orders + SQUIDINK_clear_orders + SQUIDINK_make_orders
-            )
+
+        # if Product.SQUIDINK in self.params and Product.SQUIDINK in state.order_depths:
+        #         SQUIDINK_position = (
+        #             state.position[Product.SQUIDINK]
+        #             if Product.SQUIDINK in state.position
+        #             else 0
+        #         )
+        #         SQUIDINK_fair_value = self.SQUIDINK_fair_value(
+        #             state.order_depths[Product.SQUIDINK], traderObject
+        #         )
+        #         SQUIDINK_take_orders, buy_order_volume, sell_order_volume = (
+        #             self.take_orders(
+        #                 Product.SQUIDINK,
+        #                 state.order_depths[Product.SQUIDINK],
+        #                 SQUIDINK_fair_value,
+        #                 self.params[Product.SQUIDINK]["take_width"],
+        #                 SQUIDINK_position,
+        #                 self.params[Product.SQUIDINK]["prevent_adverse"],
+        #                 self.params[Product.SQUIDINK]["adverse_volume"],
+        #             )
+        #         )
+        #         SQUIDINK_clear_orders, buy_order_volume, sell_order_volume = (
+        #             self.clear_orders(
+        #                 Product.SQUIDINK,
+        #                 state.order_depths[Product.SQUIDINK],
+        #                 SQUIDINK_fair_value,
+        #                 self.params[Product.SQUIDINK]["clear_width"],
+        #                 SQUIDINK_position,
+        #                 buy_order_volume,
+        #                 sell_order_volume,
+        #             )
+        #         )
+        #         SQUIDINK_make_orders, _, _ = self.make_orders(
+        #             Product.SQUIDINK,
+        #             state.order_depths[Product.SQUIDINK],
+        #             SQUIDINK_fair_value,
+        #             SQUIDINK_position,
+        #             buy_order_volume,
+        #             sell_order_volume,
+        #             self.params[Product.SQUIDINK]["disregard_edge"],
+        #             self.params[Product.SQUIDINK]["join_edge"],
+        #             self.params[Product.SQUIDINK]["default_edge"],
+        #         )
+        #         result[Product.SQUIDINK] = (
+        #             SQUIDINK_take_orders + SQUIDINK_clear_orders + SQUIDINK_make_orders
+        #         )
 
         conversions = 1
         traderData = jsonpickle.encode(traderObject)

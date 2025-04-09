@@ -10,8 +10,10 @@ from tqdm import tqdm
 
 
 MERC_NAME = 'SQUID_INK'
-CUT_OFF = 20
-day = -2
+CUT_OFFs = [2, 30]
+
+
+day = 0
 
 
 market_data = pd.read_csv(f"./round-1-island-data-bottle/prices_round_1_day_{day}.csv", sep=";", header=0)
@@ -21,10 +23,10 @@ trade_history = pd.read_csv(f"./round-1-island-data-bottle/trades_round_1_day_{d
 merc_data = market_data[market_data['product'] == MERC_NAME].reset_index(drop=True)
 
 
-def calculate_mm_mid(row, cutoff=CUT_OFF):
+def calculate_mm_mid(row, cutoff=CUT_OFFs):
     # Find the best bid with volume >= 20
     for i in range(1, 4):
-        if row[f'bid_volume_{i}'] >= cutoff:
+        if row[f'bid_volume_{i}'] >= cutoff[0] and row[f'bid_volume_{i}'] <= cutoff[1]:
             best_bid = row[f'bid_price_{i}']
             break
     else:
@@ -32,7 +34,7 @@ def calculate_mm_mid(row, cutoff=CUT_OFF):
 
     # Find the best ask with volume >= 20
     for i in range(1, 4):
-        if row[f'ask_volume_{i}'] >= cutoff:
+        if row[f'ask_volume_{i}'] >= cutoff[0] and row[f'ask_volume_{i}'] <= cutoff[1]:
             best_ask = row[f'ask_price_{i}']
             break
     else:
@@ -68,16 +70,8 @@ for iterations in iteration_counts:
     row_names.append(f'returns_in_{iterations}_its')
     row_names.append(f'returns_from_{iterations}_its_ago')
     
-
-print(row_names)
-
 merc_returns = merc_fair_prices[row_names]
-
-
 merc_returns= merc_returns.dropna()
-
-merc_returns.mean()
-
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
