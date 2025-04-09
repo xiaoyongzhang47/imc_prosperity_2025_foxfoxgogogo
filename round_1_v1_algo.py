@@ -27,7 +27,7 @@ PARAMS = {
         "take_width": 1,
         "clear_width": 0,
         "prevent_adverse": True,
-        "adverse_volume": 15,
+        "adverse_volume": 37,
         "reversion_beta": -0.229,
         "disregard_edge": 1,
         "join_edge": 0,
@@ -37,7 +37,7 @@ PARAMS = {
         "take_width": 1,
         "clear_width": 0,
         "prevent_adverse": True,
-        "adverse_volume": 15,
+        "adverse_volume": 37,
         "reversion_beta": -0.229,
         "disregard_edge": 1,
         "join_edge": 0,
@@ -207,7 +207,6 @@ class Trader:
             return fair
         return None
 
-
     def SQUIDINK_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
         if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
             best_ask = min(order_depth.sell_orders.keys())
@@ -226,6 +225,7 @@ class Trader:
             ]
             mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
             mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
+            
             if mm_ask == None or mm_bid == None:
                 if traderObject.get("squidink_last_price", None) == None:
                     mmmid_price = (best_ask + best_bid) / 2
@@ -246,7 +246,6 @@ class Trader:
             traderObject["squidink_last_price"] = mmmid_price
             return fair
         return None
-
 
     def take_orders(
         self,
@@ -285,7 +284,7 @@ class Trader:
         position: int,
         buy_order_volume: int,
         sell_order_volume: int,
-    ) -> (List[Order], int, int):
+    ) -> (List[Order], int, int): # type: ignore
         orders: List[Order] = []
         buy_order_volume, sell_order_volume = self.clear_position_order(
             product,
