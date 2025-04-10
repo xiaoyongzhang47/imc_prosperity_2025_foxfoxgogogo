@@ -10,10 +10,10 @@ from tqdm import tqdm
 
 
 MERC_NAME = 'SQUID_INK'
-CUT_OFFs = [2, 30]
+CUT_OFFs = [0, 50]
 
 
-day = 0
+day = -1
 
 
 market_data = pd.read_csv(f"./round-1-island-data-bottle/prices_round_1_day_{day}.csv", sep=";", header=0)
@@ -26,16 +26,21 @@ merc_data = market_data[market_data['product'] == MERC_NAME].reset_index(drop=Tr
 def calculate_mm_mid(row, cutoff=CUT_OFFs):
     # Find the best bid with volume >= 20
     for i in range(1, 4):
+        
         if row[f'bid_volume_{i}'] >= cutoff[0] and row[f'bid_volume_{i}'] <= cutoff[1]:
             best_bid = row[f'bid_price_{i}']
-            break
+
+            # print('bid', row[f'bid_volume_{i}'], best_bid)
+            # break
     else:
         best_bid = None
 
     # Find the best ask with volume >= 20
     for i in range(1, 4):
-        if row[f'ask_volume_{i}'] >= cutoff[0] and row[f'ask_volume_{i}'] <= cutoff[1]:
+        if row[f'ask_volume_{i}'] >= cutoff[0] and row[f'ask_volume_{i}'] > 10:
             best_ask = row[f'ask_price_{i}']
+
+            print('ask', row[f'ask_volume_{i}'], best_ask)
             break
     else:
         best_ask = None
