@@ -10,11 +10,8 @@ from tqdm import tqdm
 
 
 MERC_NAME = 'SQUID_INK'
-CUT_OFFs = [0, 50]
-
-
-day = -1
-
+CUT_OFFs = 15
+day = -0
 
 market_data = pd.read_csv(f"./round-1-island-data-bottle/prices_round_1_day_{day}.csv", sep=";", header=0)
 trade_history = pd.read_csv(f"./round-1-island-data-bottle/trades_round_1_day_{day}.csv", sep=";", header=0)
@@ -22,25 +19,19 @@ trade_history = pd.read_csv(f"./round-1-island-data-bottle/trades_round_1_day_{d
 
 merc_data = market_data[market_data['product'] == MERC_NAME].reset_index(drop=True)
 
-
-def calculate_mm_mid(row, cutoff=CUT_OFFs):
+def calculate_mm_mid(row):
     # Find the best bid with volume >= 20
     for i in range(1, 4):
-        
-        if row[f'bid_volume_{i}'] >= cutoff[0] and row[f'bid_volume_{i}'] <= cutoff[1]:
+        if row[f'bid_volume_{i}'] >= 15:
             best_bid = row[f'bid_price_{i}']
-
-            # print('bid', row[f'bid_volume_{i}'], best_bid)
-            # break
+            break
     else:
         best_bid = None
 
     # Find the best ask with volume >= 20
     for i in range(1, 4):
-        if row[f'ask_volume_{i}'] >= cutoff[0] and row[f'ask_volume_{i}'] > 10:
+        if row[f'ask_volume_{i}'] >= 15:
             best_ask = row[f'ask_price_{i}']
-
-            print('ask', row[f'ask_volume_{i}'], best_ask)
             break
     else:
         best_ask = None
@@ -53,10 +44,11 @@ def calculate_mm_mid(row, cutoff=CUT_OFFs):
 
 merc_data['mm_mid'] = merc_data.apply(calculate_mm_mid, axis=1)
 
+print(merc_data['mm_mid'])
 
 merc_fair_prices = merc_data[['timestamp', 'mm_mid']]
 merc_fair_prices = merc_fair_prices.rename(columns={'mm_mid': 'fair'})
-iteration_counts = [1,2,5,10,50, 100, 500] 
+iteration_counts = [1,2,5,10,50,100,500] 
 
 for iterations in iteration_counts:
     merc_fair_prices[f"fair_in_{iterations}_its"] = merc_fair_prices['fair'].shift(-iterations)
@@ -65,13 +57,13 @@ for iterations in iteration_counts:
 
 for iterations in iteration_counts:
     merc_fair_prices[f'returns_in_{iterations}_its'] = (merc_fair_prices[f'fair_in_{iterations}_its'] - merc_fair_prices['fair'])/merc_fair_prices['fair']
+
     merc_fair_prices[f'returns_from_{iterations}_its_ago'] = (merc_fair_prices['fair'] - merc_fair_prices[f'fair_{iterations}_its_ago'])/merc_fair_prices[f'fair_{iterations}_its_ago']
 
 
 row_names = ['timestamp','fair']
 
 for iterations in iteration_counts:
-
     row_names.append(f'returns_in_{iterations}_its')
     row_names.append(f'returns_from_{iterations}_its_ago')
     
@@ -85,8 +77,6 @@ from tqdm import tqdm
 
 # Perform train-test split
 train_data, test_data = train_test_split(merc_returns, test_size=0.2, random_state=42)
-
-print("test")
 
 # Iterate over each iteration count
 for iterations in tqdm(iteration_counts):
