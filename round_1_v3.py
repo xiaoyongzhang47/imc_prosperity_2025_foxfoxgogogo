@@ -40,12 +40,13 @@ PARAMS = {
         "clear_width": 1,           
         "prevent_adverse": True,    
         "adverse_volume": 15,       
-        "reversion_beta": -0.01,
+        "reversion_beta": -0.1,
         "disregard_edge": 1,        
         "join_edge": 0,
         "default_edge": 1,
-        "moving_average_window": 100,  
-        "deviation_threshold": 0.01,  
+        "moving_average_window": 50,  
+        "deviation_threshold": 0.01,
+        "slope_threshold": 0.26
     },
 }
 
@@ -56,7 +57,7 @@ class Trader:
             params = PARAMS
         self.params = params
 
-        self.LIMIT = {Product.RAINFORESTRESIN: 50, Product.KELP: 50, Product.SQUIDINK:50}
+        self.LIMIT = {Product.RAINFORESTRESIN: 50, Product.KELP: 50, Product.SQUIDINK:20}
     def KELP_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
         if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
             best_ask = min(order_depth.sell_orders.keys())
@@ -480,50 +481,60 @@ class Trader:
             )
 
         if Product.SQUIDINK in self.params and Product.SQUIDINK in state.order_depths and self.params[Product.SQUIDINK]["do_trade"]:
-             
-            SQUIDINK_position = (
-                state.position[Product.SQUIDINK]
-                if Product.SQUIDINK in state.position
-                else 0
-            )
-
+            
+            # Get the current position and compute a fair value
+            SQUIDINK_position = state.position.get(Product.SQUIDINK, 0)
             SQUIDINK_fair_value = self.SQUIDINK_fair_value(
                 state.order_depths[Product.SQUIDINK], traderObject
             )
-
+            
+            # --- Maintain a history of recent prices ---
             if not hasattr(self, 'squidink_recent_prices'):
                 self.squidink_recent_prices = []
-            
             self.squidink_recent_prices.append(SQUIDINK_fair_value)
             
-            moving_average_window = self.params[Product.SQUIDINK].get("moving_average_window")
+            # Use the moving average window parameter (e.g., 100 or 1000, adjust as needed)
+            moving_average_window = self.params[Product.SQUIDINK].get("moving_average_window", 100)
             if len(self.squidink_recent_prices) > moving_average_window:
                 self.squidink_recent_prices.pop(0)
             
-            
-
+            # Calculate the moving average & deviation
             moving_average = sum(self.squidink_recent_prices) / len(self.squidink_recent_prices)
             deviation = SQUIDINK_fair_value - moving_average
             normalized_deviation = deviation / moving_average if moving_average != 0 else 0
-
             deviation_threshold = self.params[Product.SQUIDINK]["deviation_threshold"]
+            
 
-            if not hasattr(self, 'squidink_recent_deviation'):
-                self.squidink_recent_deviation = []
+            # --- New: Compute the recent price slope ---
+            # Only compute slope if we have a full window of data.
+            if len(self.squidink_recent_prices) >= moving_average_window:
+                x = np.arange(moving_average_window)
+                prices_window = np.array(self.squidink_recent_prices[-moving_average_window:])
+                slope, _ = np.polyfit(x, prices_window, 1)
+            else:
+                slope = 0.0  # if not enough data, default to 0
+
+            slope_threshold = self.params[Product.SQUIDINK].get("slope_threshold")
+
+            # Optionally save deviation history (for debugging or offline analysis)
+            # if not hasattr(self, 'slop_fun'):
+            #     self.slop_fun = []
+                
+            # self.slop_fun.append(slope)
+            # np.savetxt('slope2.csv', self.slop_fun, delimiter=',', fmt='%f')
             
-            self.squidink_recent_deviation.append(normalized_deviation)
-            np.savetxt('my_array.csv',self.squidink_recent_deviation, delimiter=',', fmt='%f')
             
-            delta = 0.02
-            if abs(normalized_deviation) > deviation_threshold:
+            delta = 0.01  # small adjustment factor
+            
+            if normalized_deviation > deviation_threshold and slope < slope_threshold:
+                adjusted_fair_value = SQUIDINK_fair_value * (1 - delta)
+            elif normalized_deviation < -deviation_threshold and slope > -slope_threshold:
                 adjusted_fair_value = SQUIDINK_fair_value * (1 + delta)
             else:
-                adjusted_fair_value = SQUIDINK_fair_value * (1 - delta)
-
-
-            # print([adjusted_clear_width, adjusted_take_width])
-
-
+                # Otherwise, use the original fair value (or combine both adjustments as needed)
+                adjusted_fair_value = SQUIDINK_fair_value
+            
+            # --- Order placement using the adjusted fair value ---
             SQUIDINK_take_orders, buy_order_volume, sell_order_volume = self.take_orders(
                 Product.SQUIDINK,
                 state.order_depths[Product.SQUIDINK],
@@ -533,19 +544,17 @@ class Trader:
                 self.params[Product.SQUIDINK]["prevent_adverse"],
                 self.params[Product.SQUIDINK]["adverse_volume"],
             )
-
+            
             SQUIDINK_clear_orders, buy_order_volume, sell_order_volume = self.clear_orders(
                 Product.SQUIDINK,
                 state.order_depths[Product.SQUIDINK],
                 adjusted_fair_value,
-                self.params[Product.SQUIDINK]["clear_width"],  # Use adjusted clear width based on deviation.
+                self.params[Product.SQUIDINK]["clear_width"],
                 SQUIDINK_position,
                 buy_order_volume,
                 sell_order_volume,
             )
-
-
-
+            
             SQUIDINK_make_orders, _, _ = self.make_orders(
                 Product.SQUIDINK,
                 state.order_depths[Product.SQUIDINK],
@@ -557,13 +566,10 @@ class Trader:
                 self.params[Product.SQUIDINK]["join_edge"],
                 self.params[Product.SQUIDINK]["default_edge"],
             )
-
-
+            
             result[Product.SQUIDINK] = (
                 SQUIDINK_take_orders + SQUIDINK_clear_orders + SQUIDINK_make_orders
             )
-
-
 
         conversions = 1
         traderData = jsonpickle.encode(traderObject)
