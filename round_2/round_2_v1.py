@@ -184,6 +184,8 @@ class Trader:
             return fair
         return None
 
+
+    #### help me find the inversiotn beta use the beta finding programme in round1, thanks.
     def CROISSANTS_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
         if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
             best_ask = min(order_depth.sell_orders.keys())
@@ -223,7 +225,87 @@ class Trader:
             return fair
         return None
 
-    #  some other get fair value function is needed herre 
+
+    def PICNIKBASK1_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
+        if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
+            best_ask = min(order_depth.sell_orders.keys())
+            best_bid = max(order_depth.buy_orders.keys())
+            filtered_ask = [
+                price
+                for price in order_depth.sell_orders.keys()
+                if abs(order_depth.sell_orders[price])
+                >= self.params[Product.CROISSANTS]["adverse_volume"]
+            ]
+            filtered_bid = [
+                price
+                for price in order_depth.buy_orders.keys()
+                if abs(order_depth.buy_orders[price])
+                >= self.params[Product.CROISSANTS]["adverse_volume"]
+            ]
+            mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
+            mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
+            if mm_ask == None or mm_bid == None:
+                if traderObject.get("crossants_last_price", None) == None:
+                    mmmid_price = (best_ask + best_bid) / 2
+                else:
+                    mmmid_price = traderObject["crossants_last_price"]
+            else:
+                mmmid_price = (mm_ask + mm_bid) / 2
+
+            if traderObject.get("crossants_last_price", None) != None:
+                last_price = traderObject["crossants_last_price"]
+                last_returns = (mmmid_price - last_price) / last_price
+                pred_returns = (
+                    last_returns * self.params[Product.CROISSANTS]["reversion_beta"]
+                )
+                fair = mmmid_price + (mmmid_price * pred_returns)
+            else:
+                fair = mmmid_price
+            traderObject["crossants_last_price"] = mmmid_price
+            return fair
+        return None
+
+
+    def PICNIKBASK2_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
+        if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
+            best_ask = min(order_depth.sell_orders.keys())
+            best_bid = max(order_depth.buy_orders.keys())
+            filtered_ask = [
+                price
+                for price in order_depth.sell_orders.keys()
+                if abs(order_depth.sell_orders[price])
+                >= self.params[Product.CROISSANTS]["adverse_volume"]
+            ]
+            filtered_bid = [
+                price
+                for price in order_depth.buy_orders.keys()
+                if abs(order_depth.buy_orders[price])
+                >= self.params[Product.CROISSANTS]["adverse_volume"]
+            ]
+            mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
+            mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
+            if mm_ask == None or mm_bid == None:
+                if traderObject.get("crossants_last_price", None) == None:
+                    mmmid_price = (best_ask + best_bid) / 2
+                else:
+                    mmmid_price = traderObject["crossants_last_price"]
+            else:
+                mmmid_price = (mm_ask + mm_bid) / 2
+
+            if traderObject.get("crossants_last_price", None) != None:
+                last_price = traderObject["crossants_last_price"]
+                last_returns = (mmmid_price - last_price) / last_price
+                pred_returns = (
+                    last_returns * self.params[Product.CROISSANTS]["reversion_beta"]
+                )
+                fair = mmmid_price + (mmmid_price * pred_returns)
+            else:
+                fair = mmmid_price
+            traderObject["crossants_last_price"] = mmmid_price
+            return fair
+        return None
+
+
 
     def clear_position_order(
         self,
@@ -465,6 +547,8 @@ class Trader:
         return orders, buy_order_volume, sell_order_volume
 
 
+    
+
     def run(self, state: TradingState):
         traderObject = {}
         if state.traderData != None and state.traderData != "":
@@ -683,12 +767,21 @@ class Trader:
         TARGET_SIZE = 10
         if croissants_are_good and picnicbask1_is_good:
             # Retrieve current mid-prices
-            mid_croissants   = state.order_depths[Product.CROISSANTS].get_mid_price()
-            mid_picnicbask1  = state.order_depths[Product.PICNICBASKET1].get_mid_price()
+            croissants_fair_value   = self.CORISSANTS_fair_value(
+                state.order_depths[Product.CROISSANTS], traderObject
+            )
 
+            picnicbask1_fair_value  = self.PICNIKBASK1_fair_value(
+                state.order_depths[Product.PICNICBASKET1], traderObject
+            )
+
+            # picnicbask2_fair_value  = self.PICNIKBASK1_fair_value(
+            #     state.order_depths[Product.PICNICBASKET2], traderObject
+            # )
+            
             # Retrieve the cointegration regression parameters for the pair.
             # mid_picnicbask1 = alpha + beta * mid_croissants + residual
-            params_pair = self.params.get("CROISSANTS_PICNICBASKET1", {})
+            params_pair     = self.params.get("CROISSANTS_PICNICBASKET1", {})
             alpha           = params_pair.get("alpha", 0)             # regression intercept
             beta            = params_pair.get("beta", 1)              # regression slope
             mean_spread     = params_pair.get("mean_spread", 0)
@@ -698,7 +791,7 @@ class Trader:
 
             # Calculate the current spread.
             # residual (spread) = mid_picnicbask1 - (alpha + beta * mid_croissants)
-            spread = mid_picnicbask1 - (alpha + beta * mid_croissants)
+            spread = picnicbask1_fair_value - (alpha + beta * mid_croissants)
             zscore = (spread - mean_spread) / std_spread
 
 
@@ -706,6 +799,9 @@ class Trader:
             if zscore > entry_threshold:
                 # The spread is too wide – PICNICBASKET1 appears overvalued compared to CROISSANTS.
                 # Strategy: Sell PICNICBASKET1 and buy CROISSANTS.
+
+
+
                 self.place_order(Product.PICNICBASKET1, -TARGET_SIZE)    # Sell order
                 self.place_order(Product.CROISSANTS, TARGET_SIZE)        # Buy order
 
