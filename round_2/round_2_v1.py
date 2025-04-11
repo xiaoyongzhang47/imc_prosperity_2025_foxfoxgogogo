@@ -8,9 +8,19 @@ import random
 
 
 class Product:
-    KELP = "KELP"
+    KELP            = "KELP"
     RAINFORESTRESIN = "RAINFOREST_RESIN"
-    SQUIDINK = "SQUID_INK"
+    SQUIDINK        = "SQUID_INK"
+
+    CROISSANTS      = "CROISSANTS"
+    DJEMBES         = "DJEMBES"
+    JAMS            = "JAMS"
+
+    PICNICBASKET1   = "PICNIC_BASKET1"
+    PICNICBASKET2   = "PICNIC_BASKET2"
+
+
+
 
 
 PARAMS = {
@@ -48,7 +58,38 @@ PARAMS = {
         "deviation_threshold": 0.01,
         "slope_threshold": 0.26
     },
-}
+        Product.CROISSANTS: {
+        "take_width": 1,            
+        "clear_width": 1,           
+        "prevent_adverse": True,    
+        "adverse_volume": 15,       
+        "reversion_beta": -0.1,
+        "disregard_edge": 1,        
+        "join_edge": 0,
+        "default_edge": 1,
+    },
+        Product.PICNICBASKET1: {
+        "take_width": 1,            
+        "clear_width": 1,           
+        "prevent_adverse": True,    
+        "adverse_volume": 15,       
+        "reversion_beta": -0.1,
+        "disregard_edge": 1,        
+        "join_edge": 0,
+        "default_edge": 1,
+    },
+        Product.PICNICBASKET2: {
+        "take_width": 1,            
+        "clear_width": 1,           
+        "prevent_adverse": True,    
+        "adverse_volume": 15,       
+        "reversion_beta": -0.1,
+        "disregard_edge": 1,        
+        "join_edge": 0,
+        "default_edge": 1,
+    }
+    }
+
 
 
 class Trader:
@@ -58,6 +99,7 @@ class Trader:
         self.params = params
 
         self.LIMIT = {Product.RAINFORESTRESIN: 50, Product.KELP: 50, Product.SQUIDINK:20}
+
     def KELP_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
         if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
             best_ask = min(order_depth.sell_orders.keys())
@@ -141,6 +183,47 @@ class Trader:
 
             return fair
         return None
+
+    def CROISSANTS_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
+        if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
+            best_ask = min(order_depth.sell_orders.keys())
+            best_bid = max(order_depth.buy_orders.keys())
+            filtered_ask = [
+                price
+                for price in order_depth.sell_orders.keys()
+                if abs(order_depth.sell_orders[price])
+                >= self.params[Product.CROISSANTS]["adverse_volume"]
+            ]
+            filtered_bid = [
+                price
+                for price in order_depth.buy_orders.keys()
+                if abs(order_depth.buy_orders[price])
+                >= self.params[Product.CROISSANTS]["adverse_volume"]
+            ]
+            mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
+            mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
+            if mm_ask == None or mm_bid == None:
+                if traderObject.get("crossants_last_price", None) == None:
+                    mmmid_price = (best_ask + best_bid) / 2
+                else:
+                    mmmid_price = traderObject["crossants_last_price"]
+            else:
+                mmmid_price = (mm_ask + mm_bid) / 2
+
+            if traderObject.get("crossants_last_price", None) != None:
+                last_price = traderObject["crossants_last_price"]
+                last_returns = (mmmid_price - last_price) / last_price
+                pred_returns = (
+                    last_returns * self.params[Product.CROISSANTS]["reversion_beta"]
+                )
+                fair = mmmid_price + (mmmid_price * pred_returns)
+            else:
+                fair = mmmid_price
+            traderObject["crossants_last_price"] = mmmid_price
+            return fair
+        return None
+
+    #  some other get fair value function is needed herre 
 
     def clear_position_order(
         self,
@@ -314,7 +397,6 @@ class Trader:
         )
         return orders, buy_order_volume, sell_order_volume
     
-
     def make_orders(
     self,
     product,
@@ -390,7 +472,9 @@ class Trader:
 
         result = {}
 
-
+        # --------------------
+        # RAINFORESTRESIN
+        # --------------------
         if Product.RAINFORESTRESIN in self.params and Product.RAINFORESTRESIN in state.order_depths:
             RAINFORESTRESIN_position = (
                 state.position[Product.RAINFORESTRESIN]
@@ -434,6 +518,10 @@ class Trader:
                 RAINFORESTRESIN_take_orders + RAINFORESTRESIN_clear_orders + RAINFORESTRESIN_make_orders
             )
 
+        
+        # --------------------
+        # KELP
+        # --------------------
         if Product.KELP in self.params and Product.KELP in state.order_depths:
             KELP_position = (
                 state.position[Product.KELP]
@@ -480,6 +568,10 @@ class Trader:
                 KELP_take_orders + KELP_clear_orders + KELP_make_orders
             )
 
+
+        # --------------------
+        # FKING SQUID_INK
+        # --------------------
         if Product.SQUIDINK in self.params and Product.SQUIDINK in state.order_depths and self.params[Product.SQUIDINK]["do_trade"]:
             
             # Get the current position and compute a fair value
@@ -570,6 +662,118 @@ class Trader:
             result[Product.SQUIDINK] = (
                 SQUIDINK_take_orders + SQUIDINK_clear_orders + SQUIDINK_make_orders
             )
+
+
+        # --------------------
+        # CROISSANTS / PICNICBASKET1/ PICNICBASKET2 PairTrading
+        # --------------------
+
+        run_this_part = False
+
+        croissants_are_good = Product.CROISSANTS in self.params and Product.CROISSANTS in state.order_depths and run_this_part
+
+        picnicbask1_is_good = Product.PICNICBASKET1 in self.params and Product.PICNICBASKET1 in state.order_depths and run_this_part
+        
+        picnicbask2_is_good = Product.PICNICBASKET2 in self.params and Product.PICNICBASKET2 in state.order_depths and run_this_part
+
+        # --------------------
+        # Pair: CROISSANTS / PICNICBASKET1
+        # --------------------
+
+        TARGET_SIZE = 10
+        if croissants_are_good and picnicbask1_is_good:
+            # Retrieve current mid-prices
+            mid_croissants   = state.order_depths[Product.CROISSANTS].get_mid_price()
+            mid_picnicbask1  = state.order_depths[Product.PICNICBASKET1].get_mid_price()
+
+            # Retrieve the cointegration regression parameters for the pair.
+            # mid_picnicbask1 = alpha + beta * mid_croissants + residual
+            params_pair = self.params.get("CROISSANTS_PICNICBASKET1", {})
+            alpha           = params_pair.get("alpha", 0)             # regression intercept
+            beta            = params_pair.get("beta", 1)              # regression slope
+            mean_spread     = params_pair.get("mean_spread", 0)
+            std_spread      = params_pair.get("std_spread", 1)          # avoid division by zero
+            entry_threshold = params_pair.get("entry_threshold", 1.0)  # typically a z-score of 1 or 2
+            exit_threshold  = params_pair.get("exit_threshold", 0.5)
+
+            # Calculate the current spread.
+            # residual (spread) = mid_picnicbask1 - (alpha + beta * mid_croissants)
+            spread = mid_picnicbask1 - (alpha + beta * mid_croissants)
+            zscore = (spread - mean_spread) / std_spread
+
+
+            # Trading rules:
+            if zscore > entry_threshold:
+                # The spread is too wide – PICNICBASKET1 appears overvalued compared to CROISSANTS.
+                # Strategy: Sell PICNICBASKET1 and buy CROISSANTS.
+                self.place_order(Product.PICNICBASKET1, -TARGET_SIZE)    # Sell order
+                self.place_order(Product.CROISSANTS, TARGET_SIZE)        # Buy order
+
+                self.log("Entering trade: short PICNICBASKET1, long CROISSANTS")
+
+            elif zscore < -entry_threshold:
+                # The spread is too low – PICNICBASKET1 appears undervalued relative to CROISSANTS.
+                # Strategy: Buy PICNICBASKET1 and sell CROISSANTS.
+                self.place_order(Product.PICNICBASKET1, TARGET_SIZE)       # Buy order
+                self.place_order(Product.CROISSANTS, -TARGET_SIZE)         # Sell order
+
+                self.log("Entering trade: long PICNICBASKET1, short CROISSANTS")
+
+            elif abs(zscore) < exit_threshold:
+                # The spread is near its mean – close any existing positions.
+
+                self.close_position(Product.PICNICBASKET1)
+                self.close_position(Product.CROISSANTS)
+                self.log("Exiting position: spread reverted")
+
+        # --------------------
+        # Pair: CROISSANTS / PICNICBASKET2
+        # --------------------
+        if croissants_are_good and picnicbask2_is_good:
+            # Retrieve current mid-prices
+            mid_croissants   = state.order_depths[Product.CROISSANTS].get_mid_price()
+            mid_picnicbask2  = state.order_depths[Product.PICNICBASKET2].get_mid_price()
+
+            # Retrieve the cointegration regression parameters for the pair.
+            params_pair = self.params.get("CROISSANTS_PICNICBASKET2", {})
+            alpha          = params_pair.get("alpha", 0)
+            beta           = params_pair.get("beta", 1)
+            mean_spread    = params_pair.get("mean_spread", 0)
+            std_spread     = params_pair.get("std_spread", 1)
+            entry_threshold = params_pair.get("entry_threshold", 1.0)
+            exit_threshold  = params_pair.get("exit_threshold", 0.5)
+
+            # Calculate the spread for this pair.
+            spread = mid_picnicbask2 - (alpha + beta * mid_croissants)
+
+            # Compute the z-score of the current spread.
+            zscore = (spread - mean_spread) / std_spread
+
+            # Log the current z-score
+            self.log(f"[CROISSANTS/PICNICBASKET2] Spread: {spread:.2f}, z-score: {zscore:.2f}")
+
+            # Trading rules:
+            if zscore > entry_threshold:
+                # PICNICBASKET2 is overvalued relative to CROISSANTS.
+                self.place_order(Product.PICNICBASKET2, -TARGET_SIZE)  # Sell PICNICBASKET2
+                self.place_order(Product.CROISSANTS, TARGET_SIZE)       # Buy CROISSANTS
+                self.log("Entering trade: short PICNICBASKET2, long CROISSANTS")
+            elif zscore < -entry_threshold:
+                # PICNICBASKET2 is undervalued relative to CROISSANTS.
+                self.place_order(Product.PICNICBASKET2, TARGET_SIZE)      # Buy PICNICBASKET2
+                self.place_order(Product.CROISSANTS, -TARGET_SIZE)        # Sell CROISSANTS
+                self.log("Entering trade: long PICNICBASKET2, short CROISSANTS")
+            elif abs(zscore) < exit_threshold:
+                # Exit trade if the spread has reverted.
+                self.close_position(Product.PICNICBASKET2)
+                self.close_position(Product.CROISSANTS)
+                self.log("Exiting position: spread reverted")
+
+                
+
+
+
+
 
         conversions = 1
         traderData = jsonpickle.encode(traderObject)
