@@ -20,9 +20,10 @@ containers = [
     {"multiplier": 89, "inhabitants": 8},   # Container 9
 ]
 
-num_players = 4096
+num_players = random.randint(512, 4096)
+print(num_players)
 
-p = 1
+p = 0.3
 
 #everyone get a free pick
 strategies = []
@@ -51,6 +52,7 @@ def compute_container_counts(strategies):
 # ----------------------
 # Payoff Function
 # ----------------------
+
 def container_payoff(i, count_i):
     total_possible_choices = num_players + sum(1 for strat in strategies if strat["paid"] is not None)
     m = containers[i]["multiplier"]
