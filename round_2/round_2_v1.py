@@ -265,7 +265,6 @@ class Trader:
             return fair
         return None
 
-
     def PICNIKBASK2_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
         if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
             best_ask = min(order_depth.sell_orders.keys())
@@ -304,8 +303,6 @@ class Trader:
             traderObject["crossants_last_price"] = mmmid_price
             return fair
         return None
-
-
 
     def clear_position_order(
         self,
@@ -437,6 +434,7 @@ class Trader:
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
     ) -> (List[Order], int, int): # type: ignore
+        
         orders: List[Order] = []
         
         buy_order_volume = 0
@@ -545,9 +543,132 @@ class Trader:
         )
 
         return orders, buy_order_volume, sell_order_volume
-
-
     
+
+    # --------------------
+    # PAIRS TRADING FUNCTIONS
+    # --------------------
+    def pair_trading_best_sells(
+        self,
+        product: str,
+        fair_value: int,
+        sell_width: float,
+        orders: List[Order],
+        order_depth: OrderDepth,
+        position: int,
+        sell_order_volume: int,
+        prevent_adverse: bool = False,
+        adverse_volume: int = 0,
+    ) -> (int, int): # type: ignore
+        # Here we fills all bids that falls in the region [fair - sell_width, fair]
+        # which are not covered by the best_take orders 
+
+        position_limit = self.LIMIT[product]
+
+        if len(order_depth.buy_orders) != 0:
+            best_bid = max(order_depth.buy_orders.keys())
+            best_bid_amount = order_depth.buy_orders[best_bid]
+
+            if not prevent_adverse or abs(best_bid_amount) <= adverse_volume:
+                # slightly beyong the fair_value
+                if best_bid + sell_width >= fair_value:
+                    quantity = min(
+                        best_bid_amount, position_limit + position
+                    )  # should be the max we can sell
+                    if quantity > 0:
+                        orders.append(Order(product, best_bid, -1 * quantity))
+                        sell_order_volume += quantity
+                        order_depth.buy_orders[best_bid] -= quantity
+                        if order_depth.buy_orders[best_bid] == 0:
+                            del order_depth.buy_orders[best_bid]
+
+        return sell_order_volume
+    
+    def pair_trading_best_buys(
+        self,
+        product: str,
+        fair_value: int,
+        buy_width: float,
+        orders: List[Order],
+        order_depth: OrderDepth,
+        position: int,
+        target_buy_order_volume: int,
+        prevent_adverse: bool = False,
+        adverse_volume: int = 0,
+    ) -> (int, int): # type: ignore
+        position_limit = self.LIMIT[product]
+        # Here we fills all asks that falls in the region [fair, fair + buy_width]
+        # which are not covered by the best_take orders 
+
+        if len(order_depth.sell_orders) != 0:
+            best_ask = min(order_depth.sell_orders.keys())
+            best_ask_amount = -1 * order_depth.sell_orders[best_ask]
+
+            if not prevent_adverse or abs(best_ask_amount) <= adverse_volume:
+                if best_ask - buy_width <= fair_value:
+                    quantity = min(
+                        best_ask_amount,
+                        target_buy_order_volume,
+                        position_limit - position
+                    )  # max allowed amt to buy
+
+                    if quantity > 0:
+                        orders.append(Order(product, best_ask, quantity))
+                        buy_order_volume += quantity
+                        order_depth.sell_orders[best_ask] += quantity
+                        if order_depth.sell_orders[best_ask] == 0:
+                            del order_depth.sell_orders[best_ask]
+
+        return buy_order_volume
+
+    def pair_trading_orders(
+        self,
+        order_type: str,
+        product: str,
+        target_volume: float,
+        order_depth: OrderDepth,
+        fair_value: float,
+        width: float,
+        position: int,
+        prevent_adverse: bool = False,
+        adverse_volume: int = 0,
+    ) -> (List[Order], int, int): # type: ignore
+        
+        orders: List[Order] = []
+        
+        buy_order_volume = 0
+        sell_order_volume = 0
+
+        if order_type == 'buy':
+            buy_order_volume = self.pair_trading_best_buys(
+                product,
+                fair_value,
+                width,
+                orders,
+                order_depth,
+                position,
+                target_volume,
+                prevent_adverse,
+                adverse_volume,
+            )
+        elif order_type == 'sell':
+            sell_order_volume = self.pair_trading_best_sells(
+                product,
+                fair_value,
+                width,
+                orders,
+                order_depth,
+                position,
+                target_volume,
+                prevent_adverse,
+                adverse_volume,
+            )
+        else:
+            print("what are you talking about ???")
+
+        return orders, buy_order_volume, sell_order_volume
+
+
 
     def run(self, state: TradingState):
         traderObject = {}
@@ -648,6 +769,7 @@ class Trader:
                 self.params[Product.KELP]["join_edge"],
                 self.params[Product.KELP]["default_edge"],
             )
+
             result[Product.KELP] = (
                 KELP_take_orders + KELP_clear_orders + KELP_make_orders
             )
@@ -764,14 +886,28 @@ class Trader:
         # Pair: CROISSANTS / PICNICBASKET1
         # --------------------
 
-        TARGET_SIZE = 10
+       
         if croissants_are_good and picnicbask1_is_good:
-            # Retrieve current mid-prices
-            croissants_fair_value   = self.CORISSANTS_fair_value(
+            # get positiions
+
+            CROISSANTS_position = (
+                state.position[Product.CROISSANTS]
+                if Product.CROISSANTS in state.position
+                else 0
+            )
+
+            PICNICBASK1_position = (
+                state.position[Product.PICNICBASKET1]
+                if Product.PICNICBASKET1 in state.position
+                else 0
+            )
+
+            # get_fair_value
+            CROISSANTS_fair_value   = self.CROISSANTS_fair_value(
                 state.order_depths[Product.CROISSANTS], traderObject
             )
 
-            picnicbask1_fair_value  = self.PICNIKBASK1_fair_value(
+            PICNICBASKET1_fair_value  = self.PICNIKBASK1_fair_value(
                 state.order_depths[Product.PICNICBASKET1], traderObject
             )
 
@@ -791,82 +927,83 @@ class Trader:
 
             # Calculate the current spread.
             # residual (spread) = mid_picnicbask1 - (alpha + beta * mid_croissants)
-            spread = picnicbask1_fair_value - (alpha + beta * mid_croissants)
+            spread = PICNICBASKET1_fair_value - (alpha + beta * CROISSANTS_fair_value)
             zscore = (spread - mean_spread) / std_spread
 
 
+            sell_width = 1
+            buy_width = 1
+
+            TARGET_VOLUME = 10
             # Trading rules:
             if zscore > entry_threshold:
                 # The spread is too wide – PICNICBASKET1 appears overvalued compared to CROISSANTS.
                 # Strategy: Sell PICNICBASKET1 and buy CROISSANTS.
 
+                PICNICBASKET1_pt_orders, PICNICBASKET1_sell_order_volume = (
+                    self.pair_trading_orders(
+                        'sell',
+                        Product.PICNICBASKET1,
+                        TARGET_VOLUME,
+                        state.order_depths[Product.PICNICBASKET1],
+                        PICNICBASKET1_fair_value,
+                        sell_width,
+                        PICNICBASK1_position,
+                        self.params[Product.PICNICBASKET1]["prevent_adverse"],
+                        self.params[Product.PICNICBASKET1]["adverse_volume"],
+                        ))
 
-
-                self.place_order(Product.PICNICBASKET1, -TARGET_SIZE)    # Sell order
-                self.place_order(Product.CROISSANTS, TARGET_SIZE)        # Buy order
-
-                self.log("Entering trade: short PICNICBASKET1, long CROISSANTS")
+                CROISSANTS_pt_orders, CROISSANTS_buy_order_volume = (
+                    self.pair_trading_orders(
+                        'buy',
+                        Product.CROISSANTS,
+                        state.order_depths[Product.CROISSANTS],
+                        CROISSANTS_fair_value,
+                        buy_width,
+                        CROISSANTS_position,
+                        self.params[Product.CROISSANTS]["prevent_adverse"],
+                        self.params[Product.CROISSANTS]["adverse_volume"],
+                        ))
 
             elif zscore < -entry_threshold:
                 # The spread is too low – PICNICBASKET1 appears undervalued relative to CROISSANTS.
                 # Strategy: Buy PICNICBASKET1 and sell CROISSANTS.
-                self.place_order(Product.PICNICBASKET1, TARGET_SIZE)       # Buy order
-                self.place_order(Product.CROISSANTS, -TARGET_SIZE)         # Sell order
-
-                self.log("Entering trade: long PICNICBASKET1, short CROISSANTS")
-
-            elif abs(zscore) < exit_threshold:
-                # The spread is near its mean – close any existing positions.
-
-                self.close_position(Product.PICNICBASKET1)
-                self.close_position(Product.CROISSANTS)
-                self.log("Exiting position: spread reverted")
-
-        # --------------------
-        # Pair: CROISSANTS / PICNICBASKET2
-        # --------------------
-        if croissants_are_good and picnicbask2_is_good:
-            # Retrieve current mid-prices
-            mid_croissants   = state.order_depths[Product.CROISSANTS].get_mid_price()
-            mid_picnicbask2  = state.order_depths[Product.PICNICBASKET2].get_mid_price()
-
-            # Retrieve the cointegration regression parameters for the pair.
-            params_pair = self.params.get("CROISSANTS_PICNICBASKET2", {})
-            alpha          = params_pair.get("alpha", 0)
-            beta           = params_pair.get("beta", 1)
-            mean_spread    = params_pair.get("mean_spread", 0)
-            std_spread     = params_pair.get("std_spread", 1)
-            entry_threshold = params_pair.get("entry_threshold", 1.0)
-            exit_threshold  = params_pair.get("exit_threshold", 0.5)
-
-            # Calculate the spread for this pair.
-            spread = mid_picnicbask2 - (alpha + beta * mid_croissants)
-
-            # Compute the z-score of the current spread.
-            zscore = (spread - mean_spread) / std_spread
-
-            # Log the current z-score
-            self.log(f"[CROISSANTS/PICNICBASKET2] Spread: {spread:.2f}, z-score: {zscore:.2f}")
-
-            # Trading rules:
-            if zscore > entry_threshold:
-                # PICNICBASKET2 is overvalued relative to CROISSANTS.
-                self.place_order(Product.PICNICBASKET2, -TARGET_SIZE)  # Sell PICNICBASKET2
-                self.place_order(Product.CROISSANTS, TARGET_SIZE)       # Buy CROISSANTS
-                self.log("Entering trade: short PICNICBASKET2, long CROISSANTS")
-            elif zscore < -entry_threshold:
-                # PICNICBASKET2 is undervalued relative to CROISSANTS.
-                self.place_order(Product.PICNICBASKET2, TARGET_SIZE)      # Buy PICNICBASKET2
-                self.place_order(Product.CROISSANTS, -TARGET_SIZE)        # Sell CROISSANTS
-                self.log("Entering trade: long PICNICBASKET2, short CROISSANTS")
-            elif abs(zscore) < exit_threshold:
-                # Exit trade if the spread has reverted.
-                self.close_position(Product.PICNICBASKET2)
-                self.close_position(Product.CROISSANTS)
-                self.log("Exiting position: spread reverted")
-
                 
+                PICNICBASKET1_pt_orders, PICNICBASKET1_buy_order_volume = (
+                    self.pair_trading_orders(
+                        'buy',
+                        Product.PICNICBASKET1,
+                        state.order_depths[Product.PICNICBASKET1],
+                        PICNICBASKET1_fair_value,
+                        sell_width,
+                        PICNICBASK1_position,
+                        self.params[Product.PICNICBASKET1]["prevent_adverse"],
+                        self.params[Product.PICNICBASKET1]["adverse_volume"],
+                        ))
+                
+                CROISSANTS_pt_orders, CROISSANTS_sell_order_volume = (
+                    self.pair_trading_orders(
+                        'sell',
+                        Product.CROISSANTS,
+                        state.order_depths[Product.CROISSANTS],
+                        CROISSANTS_fair_value,
+                        buy_width,
+                        CROISSANTS_position,
+                        self.params[Product.CROISSANTS]["prevent_adverse"],
+                        self.params[Product.CROISSANTS]["adverse_volume"],
+                        ))
 
+            elif abs(zscore) < exit_threshold:
+                pass
+
+
+            result[Product.CROISSANTS] = (
+                CROISSANTS_pt_orders
+            )
+
+            result[Product.PICNICBASKET1] = (
+                PICNICBASKET1_pt_orders
+            )
 
 
 
