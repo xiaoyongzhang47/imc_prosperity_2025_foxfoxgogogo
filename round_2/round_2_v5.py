@@ -873,7 +873,7 @@ class Trader:
         djembes_solo_trading: List[Order] = []
 
         
-        allow_solo_trading = random.random() < 0.8
+        allow_solo_trading = random.random() < 0.7
         # tracks their position as it
 
         CROISSANTS_position = 0
