@@ -1,26 +1,23 @@
 from datamodel import OrderDepth, UserId, TradingState, Order
 from typing import List
-import string 
-import jsonpickle # type: ignore
+import string
+import jsonpickle  # type: ignore
 import numpy as np
 import math
 import random
 import time
 
 class Product:
-    KELP            = "KELP"
+    KELP = "KELP"
     RAINFORESTRESIN = "RAINFOREST_RESIN"
-    SQUIDINK        = "SQUID_INK"
+    SQUIDINK = "SQUID_INK"
 
-    CROISSANTS      = "CROISSANTS"
-    DJEMBES         = "DJEMBES"
-    JAMS            = "JAMS"
+    CROISSANTS = "CROISSANTS"
+    DJEMBES = "DJEMBES"
+    JAMS = "JAMS"
 
-    PICNICBASKET1   = "PICNIC_BASKET1"
-    PICNICBASKET2   = "PICNIC_BASKET2"
-
-
-
+    PICNICBASKET1 = "PICNIC_BASKET1"
+    PICNICBASKET2 = "PICNIC_BASKET2"
 
 
 PARAMS = {
@@ -29,7 +26,8 @@ PARAMS = {
         "take_width": 1,
         "clear_width": 0,
         # for making
-        "disregard_edge": 1,  # disregards orders for joining or pennying within this value from fair
+        # disregards orders for joining or pennying within this value from fair
+        "disregard_edge": 1,
         "join_edge": 2,  # joins orders within this edge
         "default_edge": 4,
         "soft_position_limit": 10,
@@ -43,28 +41,28 @@ PARAMS = {
         "disregard_edge": 1,
         "join_edge": 0,
         "default_edge": 5,
-        },
+    },
     Product.SQUIDINK: {
         "do_trade": True,
-        "take_width": 1,            
-        "clear_width": 1,           
-        "prevent_adverse": True,    
-        "adverse_volume": 15,       
+        "take_width": 1,
+        "clear_width": 1,
+        "prevent_adverse": True,
+        "adverse_volume": 15,
         "reversion_beta": -0.1,
-        "disregard_edge": 1,        
+        "disregard_edge": 1,
         "join_edge": 0,
         "default_edge": 1,
-        "moving_average_window": 50,  
+        "moving_window_len": 50,
         "deviation_threshold": 0.01,
         "slope_threshold": 0.26
-        },
+    },
     Product.CROISSANTS: {
-        "take_width": 1,            
-        "clear_width": 1,           
-        "prevent_adverse": True,    
-        "adverse_volume": 15,       
+        "take_width": 1,
+        "clear_width": 1,
+        "prevent_adverse": True,
+        "adverse_volume": 15,
         "reversion_beta": -0.1,
-        "disregard_edge": 1,        
+        "disregard_edge": 1,
         "join_edge": 0,
         "default_edge": 1,
         },
@@ -74,7 +72,7 @@ PARAMS = {
         "prevent_adverse": True,    
         "adverse_volume": 15,       
         "reversion_beta": -0.1,
-        "disregard_edge": 1,        
+        "disregard_edge": 1,
         "join_edge": 0,
         "default_edge": 1,
         },
@@ -84,7 +82,7 @@ PARAMS = {
         "prevent_adverse": True,    
         "adverse_volume": 15,       
         "reversion_beta": -0.1,
-        "disregard_edge": 1,        
+        "disregard_edge": 1,
         "join_edge": 0,
         "default_edge": 1,
         },
@@ -124,6 +122,9 @@ PARAMS = {
         "exit_threshould":0.5
         },
     }
+}
+
+
 class Trader:
     def __init__(self, params=None):
         if params is None:
@@ -201,10 +202,10 @@ class Trader:
                 if abs(order_depth.buy_orders[price])
                 >= self.params[Product.SQUIDINK]["adverse_volume"]
             ]
-            
+
             mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
             mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
-            
+
             if mm_ask == None or mm_bid == None:
                 if traderObject.get("squidink_last_price", None) == None:
                     mmmid_price = (best_ask + best_bid) / 2
@@ -213,12 +214,12 @@ class Trader:
             else:
                 mmmid_price = (mm_ask + mm_bid) / 2
 
-            
             if traderObject.get("squidink_last_price", None) != None:
                 last_price = traderObject["squidink_last_price"]
                 last_returns = (mmmid_price - last_price) / last_price
                 pred_returns = (
-                    last_returns * self.params[Product.SQUIDINK]["reversion_beta"]
+                    last_returns *
+                    self.params[Product.SQUIDINK]["reversion_beta"]
                 )
 
                 fair = mmmid_price + (mmmid_price * pred_returns)
@@ -227,6 +228,7 @@ class Trader:
             traderObject["squidink_last_price"] = mmmid_price
 
             return fair
+
         return None
 
     # ------
@@ -300,7 +302,7 @@ class Trader:
         buy_order_volume: int,
         sell_order_volume: int,
     ) -> List[Order]:
-        
+
         position_after_take = position + buy_order_volume - sell_order_volume
         fair_for_bid = round(fair_value - width)
         fair_for_ask = round(fair_value + width)
@@ -321,7 +323,8 @@ class Trader:
             sent_quantity = min(sell_quantity, clear_quantity)
 
             if sent_quantity > 0:
-                orders.append(Order(product, fair_for_ask, -abs(sent_quantity)))
+                orders.append(
+                    Order(product, fair_for_ask, -abs(sent_quantity)))
                 sell_order_volume += abs(sent_quantity)
 
         if position_after_take < 0:
@@ -351,7 +354,7 @@ class Trader:
         sell_order_volume: int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (int, int): # type: ignore
+    ) -> (int, int):  # type: ignore
         position_limit = self.LIMIT[product]
 
         if len(order_depth.sell_orders) != 0:
@@ -398,15 +401,17 @@ class Trader:
         buy_order_volume: int,
         sell_order_volume: int,
     ) -> (int, int):
-        
+
         buy_quantity = self.LIMIT[product] - (position + buy_order_volume)
-        
+
         if buy_quantity > 0:
-            orders.append(Order(product, round(bid), buy_quantity))  # Buy order
+            orders.append(Order(product, round(bid),
+                          buy_quantity))  # Buy order
 
         sell_quantity = self.LIMIT[product] + (position - sell_order_volume)
         if sell_quantity > 0:
-            orders.append(Order(product, round(ask), -sell_quantity))  # Sell order
+            orders.append(Order(product, round(ask), -
+                          sell_quantity))  # Sell order
         return buy_order_volume, sell_order_volume
 
     def take_orders(
@@ -418,10 +423,10 @@ class Trader:
         position: int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (List[Order], int, int): # type: ignore
-        
+    ) -> (List[Order], int, int):  # type: ignore
+
         orders: List[Order] = []
-        
+
         buy_order_volume = 0
         sell_order_volume = 0
 
@@ -437,6 +442,7 @@ class Trader:
             prevent_adverse,
             adverse_volume,
         )
+        
         return orders, buy_order_volume, sell_order_volume
 
     def clear_orders(
@@ -448,7 +454,7 @@ class Trader:
         position: int,
         buy_order_volume: int,
         sell_order_volume: int,
-    ) -> (List[Order], int, int): # type: ignore
+    ) -> (List[Order], int, int):  # type: ignore
         orders: List[Order] = []
         buy_order_volume, sell_order_volume = self.clear_position_order(
             product,
@@ -461,20 +467,20 @@ class Trader:
             sell_order_volume,
         )
         return orders, buy_order_volume, sell_order_volume
-    
+
     def make_orders(
-    self,
-    product,
-    order_depth: OrderDepth,
-    fair_value: float,
-    position: int,
-    buy_order_volume: int,
-    sell_order_volume: int,
-    disregard_edge: float,  # disregard trades within this edge for pennying or joining
-    join_edge: float,       # join trades within this edge
-    default_edge: float,    # default edge to request if there are no levels to penny or join
-    manage_position: bool = False,
-    soft_position_limit: int = 0,
+        self,
+        product,
+        order_depth: OrderDepth,
+        fair_value: float,
+        position: int,
+        buy_order_volume: int,
+        sell_order_volume: int,
+        disregard_edge: float,  # disregard trades within this edge for pennying or joining
+        join_edge: float,       # join trades within this edge
+        default_edge: float,    # default edge to request if there are no levels to penny or join
+        manage_position: bool = False,
+        soft_position_limit: int = 0,
     ):
         orders: List[Order] = []
         # Build lists of prices that are away from fair_value.
@@ -489,11 +495,13 @@ class Trader:
             if price < fair_value - disregard_edge
         ]
 
-        best_ask_above_fair = min(asks_above_fair) if len(asks_above_fair) > 0 else None
-        best_bid_below_fair = max(bids_below_fair) if len(bids_below_fair) > 0 else None
+        best_ask_above_fair = min(asks_above_fair) if len(
+            asks_above_fair) > 0 else None
+        best_bid_below_fair = max(bids_below_fair) if len(
+            bids_below_fair) > 0 else None
 
         # Set the initial ask and bid using default_edge.
-       
+
         if best_ask_above_fair is not None:
             if abs(best_ask_above_fair - fair_value) <= join_edge:
                 ask = best_ask_above_fair  # join orders at this level
@@ -501,7 +509,6 @@ class Trader:
                 ask = best_ask_above_fair - 1  # undercut by one tick to penny
         else:
             ask = round(fair_value + default_edge)
-
 
         if best_bid_below_fair is not None:
             if abs(fair_value - best_bid_below_fair) <= join_edge:
@@ -528,11 +535,11 @@ class Trader:
         )
 
         return orders, buy_order_volume, sell_order_volume
-    
 
     # --------------------
     # PAIRS TRADING FUNCTIONS
     # --------------------
+
     def pair_trading_best_sells(
         self,
         product: str,
@@ -545,9 +552,9 @@ class Trader:
         sell_order_volume: int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (int, int): # type: ignore
+    ) -> (int, int):  # type: ignore
         # Here we fills all bids that falls in the region [fair - sell_width, fair]
-        # which are not covered by the best_take orders 
+        # which are not covered by the best_take orders
 
         position_limit = self.LIMIT[product]
 
@@ -571,7 +578,7 @@ class Trader:
                             del order_depth.buy_orders[best_bid]
 
         return sell_order_volume
-    
+
     def pair_trading_best_buys(
         self,
         product: str,
@@ -584,11 +591,10 @@ class Trader:
         buy_order_volume:int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (int, int): # type: ignore
+    ) -> (int, int):  # type: ignore
         position_limit = self.LIMIT[product]
         # Here we fills all asks that falls in the region [fair, fair + buy_width]
-        # which are not covered by the best_take orders 
-        
+        # which are not covered by the best_take orders
 
         if len(order_depth.sell_orders) != 0:
             best_ask = min(order_depth.sell_orders.keys())
@@ -628,10 +634,10 @@ class Trader:
         position: int,
         prevent_adverse: bool = False,
         adverse_volume: int = 0,
-    ) -> (List[Order], int, int): # type: ignore
-        
+    ) -> (List[Order], int, int):  # type: ignore
+
         orders: List[Order] = []
-        
+
         buy_order_volume = 0
         sell_order_volume = 0
 
@@ -717,7 +723,8 @@ class Trader:
                 self.params[Product.RAINFORESTRESIN]["soft_position_limit"],
             )
             result[Product.RAINFORESTRESIN] = (
-                RAINFORESTRESIN_take_orders + RAINFORESTRESIN_clear_orders + RAINFORESTRESIN_make_orders
+                RAINFORESTRESIN_take_orders + RAINFORESTRESIN_clear_orders +
+                RAINFORESTRESIN_make_orders
             )
 
         # --------------------
@@ -775,51 +782,54 @@ class Trader:
         # FKING SQUID_INK
         # --------------------
         if Product.SQUIDINK in self.params and Product.SQUIDINK in state.order_depths and self.params[Product.SQUIDINK]["do_trade"]:
-            
+
             # Get the current position and compute a fair value
             SQUIDINK_position = state.position.get(Product.SQUIDINK, 0)
             SQUIDINK_fair_value = self.SQUIDINK_fair_value(
                 state.order_depths[Product.SQUIDINK], traderObject
             )
-            
+
             # --- Maintain a history of recent prices ---
             if not hasattr(self, 'squidink_recent_prices'):
                 self.squidink_recent_prices = []
             self.squidink_recent_prices.append(SQUIDINK_fair_value)
-            
+
             # Use the moving average window parameter (e.g., 100 or 1000, adjust as needed)
-            moving_average_window = self.params[Product.SQUIDINK].get("moving_average_window", 100)
-            if len(self.squidink_recent_prices) > moving_average_window:
+            moving_window_len = self.params[Product.SQUIDINK].get(
+                "moving_window_len", 100)
+            if len(self.squidink_recent_prices) > moving_window_len:
+                # inefficient, but doesn't matter?
                 self.squidink_recent_prices.pop(0)
-            
+
             # Calculate the moving average & deviation
-            moving_average = sum(self.squidink_recent_prices) / len(self.squidink_recent_prices)
+            moving_average = sum(self.squidink_recent_prices) / \
+                len(self.squidink_recent_prices)
             deviation = SQUIDINK_fair_value - moving_average
             normalized_deviation = deviation / moving_average if moving_average != 0 else 0
             deviation_threshold = self.params[Product.SQUIDINK]["deviation_threshold"]
-            
 
             # --- New: Compute the recent price slope ---
             # Only compute slope if we have a full window of data.
-            if len(self.squidink_recent_prices) >= moving_average_window:
-                x = np.arange(moving_average_window)
-                prices_window = np.array(self.squidink_recent_prices[-moving_average_window:])
+            if len(self.squidink_recent_prices) >= moving_window_len:
+                x = np.arange(moving_window_len)
+                prices_window = np.array(
+                    self.squidink_recent_prices[-moving_window_len:])
                 slope, _ = np.polyfit(x, prices_window, 1)
             else:
                 slope = 0.0  # if not enough data, default to 0
 
-            slope_threshold = self.params[Product.SQUIDINK].get("slope_threshold")
+            slope_threshold = self.params[Product.SQUIDINK].get(
+                "slope_threshold")
 
             # Optionally save deviation history (for debugging or offline analysis)
             # if not hasattr(self, 'slop_fun'):
             #     self.slop_fun = []
-                
+
             # self.slop_fun.append(slope)
             # np.savetxt('slope2.csv', self.slop_fun, delimiter=',', fmt='%f')
-            
-            
+
             delta = 0.01  # small adjustment factor
-            
+
             if normalized_deviation > deviation_threshold and slope < slope_threshold:
                 adjusted_fair_value = SQUIDINK_fair_value * (1 - delta)
             elif normalized_deviation < -deviation_threshold and slope > -slope_threshold:
@@ -827,18 +837,18 @@ class Trader:
             else:
                 # Otherwise, use the original fair value (or combine both adjustments as needed)
                 adjusted_fair_value = SQUIDINK_fair_value
-            
+
             # --- Order placement using the adjusted fair value ---
             SQUIDINK_take_orders, buy_order_volume, sell_order_volume = self.take_orders(
                 Product.SQUIDINK,
                 state.order_depths[Product.SQUIDINK],
                 adjusted_fair_value,
-                self.params[Product.SQUIDINK]["take_width"], 
+                self.params[Product.SQUIDINK]["take_width"],
                 SQUIDINK_position,
                 self.params[Product.SQUIDINK]["prevent_adverse"],
                 self.params[Product.SQUIDINK]["adverse_volume"],
             )
-            
+
             SQUIDINK_clear_orders, buy_order_volume, sell_order_volume = self.clear_orders(
                 Product.SQUIDINK,
                 state.order_depths[Product.SQUIDINK],
@@ -848,7 +858,7 @@ class Trader:
                 buy_order_volume,
                 sell_order_volume,
             )
-            
+
             SQUIDINK_make_orders, _, _ = self.make_orders(
                 Product.SQUIDINK,
                 state.order_depths[Product.SQUIDINK],
@@ -860,7 +870,7 @@ class Trader:
                 self.params[Product.SQUIDINK]["join_edge"],
                 self.params[Product.SQUIDINK]["default_edge"],
             )
-            
+
             result[Product.SQUIDINK] = (
                 SQUIDINK_take_orders + SQUIDINK_clear_orders + SQUIDINK_make_orders
             )
