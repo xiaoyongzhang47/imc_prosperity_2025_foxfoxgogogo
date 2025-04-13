@@ -9,8 +9,8 @@ from sklearn.metrics import r2_score, mean_squared_error
 from tqdm import tqdm
 
 
-MERC_NAME = 'KELP'
-CUT_OFFs = 15
+MERC_NAME = 'CROISSANTS'
+CUT_OFFs = 85
 day = 1
 
 

@@ -60,7 +60,7 @@ PARAMS = {
         "take_width": 1,            
         "clear_width": 1,           
         "prevent_adverse": True,    
-        "adverse_volume": 15,       
+        "adverse_volume": 85,       
         "reversion_beta":  -0.0739,
         "disregard_edge": 1,        
         "join_edge": 0,
@@ -70,7 +70,7 @@ PARAMS = {
         "take_width": 1,            
         "clear_width": 1,           
         "prevent_adverse": True,    
-        "adverse_volume": 15,       
+        "adverse_volume": 130,       
         "reversion_beta":  0.0618,
         "disregard_edge": 1,        
         "join_edge": 0,
@@ -80,7 +80,7 @@ PARAMS = {
         "take_width": 1,            
         "clear_width": 1,           
         "prevent_adverse": True,    
-        "adverse_volume": 15,       
+        "adverse_volume": 120,       
         "reversion_beta": 0.001,
         "disregard_edge": 1,        
         "join_edge": 0,
@@ -90,7 +90,7 @@ PARAMS = {
         "take_width": 1,            
         "clear_width": 1,           
         "prevent_adverse": True,    
-        "adverse_volume": 15,       
+        "adverse_volume": 10,       
         "reversion_beta": 0.0351,
         "disregard_edge": 1,        
         "join_edge": 0,
@@ -108,7 +108,7 @@ PARAMS = {
         "take_width": 1,            
         "clear_width": 1,           
         "prevent_adverse": True,    
-        "adverse_volume": 15,       
+        "adverse_volume": 25,       
         "reversion_beta": 0.0345,
         "disregard_edge": 1,        
         "join_edge": 0,
@@ -524,6 +524,7 @@ class Trader:
             sell_order_volume,
         )
 
+
         return orders, buy_order_volume, sell_order_volume
     
 
@@ -870,6 +871,11 @@ class Trader:
         djembes_solo_trading: List[Order] = []
 
         allow_solo_trading = True
+
+        CROISSANTS_position = 0
+        JAMS_position = 0
+        DJEMBES_position = 0
+ 
         if allow_solo_trading:
             if croissants_are_good:
                 CROISSANTS_position = (
@@ -892,6 +898,9 @@ class Trader:
                         self.params[Product.CROISSANTS]["adverse_volume"],
                     )
                 )
+
+                CROISSANTS_position
+
                 CROISSANTS_clear_orders, buy_order_volume, sell_order_volume = (
                     self.clear_orders(
                         Product.CROISSANTS,
@@ -903,8 +912,9 @@ class Trader:
                         sell_order_volume,
                     )
                 )
+
                 
-                CROISSANTS_make_orders, _, _ = self.make_orders(
+                CROISSANTS_make_orders,buy_order_volume, sell_order_volume = self.make_orders(
                     Product.CROISSANTS,
                     state.order_depths[Product.CROISSANTS],
                     CROISSANTS_fair_value,
@@ -915,6 +925,7 @@ class Trader:
                     self.params[Product.CROISSANTS]["join_edge"],
                     self.params[Product.CROISSANTS]["default_edge"],
                 )
+
 
                 croissant_solo_trading =  (
                     CROISSANTS_take_orders + CROISSANTS_clear_orders + CROISSANTS_make_orders
@@ -1026,7 +1037,7 @@ class Trader:
         # Pair: PICNICBASKET1 = 6 * CROISSANTS + 3 * JAMS + DJEMB  
         # Pair: PICNICBASKET2 = 4 * CROISSANTS + 2 * JAMS
         # --------------------
-        print(croissant_solo_trading, djembes_solo_trading, jams_solo_trading)
+
 
         
         pb_strength = 1
@@ -1068,6 +1079,7 @@ class Trader:
 
             solo_trade_pb1 = False
             #  This is a bad idea
+
             if picnicbask1_is_good:
                 # do pair trading with basket 1
                 # get position
@@ -1197,7 +1209,6 @@ class Trader:
                                 position =CROISSANTS_position,
                                 ))
                         
-                        print(CROISSANTS_buy_order_volume, CROISSANTS_sell_order_volume)
                         
                 
                         JAMS_pt_orders, JAMS_buy_order_volume, JAMS_sell_order_volume = (
@@ -1234,6 +1245,7 @@ class Trader:
                     PICNICBASKET1_sell_order_volume= 0
                     
                     if random.uniform(0, 1) < pb_strength:
+
                         PICNICBASKET1_pt_orders, PICNICBASKET1_buy_order_volume,PICNICBASKET1_sell_order_volume = (
                             self.pair_trading_orders(
                                 order_type='buy',
@@ -1444,8 +1456,6 @@ class Trader:
                         
 
                 result[Product.PICNICBASKET2] = PICNICBASKET2_orders
-
-
 
 
             result[Product.CROISSANTS] = croissant_solo_trading
