@@ -258,7 +258,7 @@ class Trader:
             Product.VR_VOUCHER_1050: 200,
             }
 
-        self.round = 3 # ROUND_NUMBER REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
+        self.round = 2 # ROUND_NUMBER REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
 
         self.save_list = []
 
