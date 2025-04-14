@@ -3,6 +3,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import statistics as st
+import time 
 
 def get_df(day):
     file_name = f"./round-3-island-data-bottle/prices_round_3_day_{day}.csv"
@@ -85,7 +86,7 @@ day = 1
 df = get_df(day)
 
 strike_price = 10000  
-time_to_expiry = 1
+time_to_expiry = 7
 initial_guess = 16
 
 df_volcanic_rock = get_product(df, 'VOLCANIC_ROCK')
@@ -103,12 +104,22 @@ df_backtest = df_backtest.rename(columns={'mid_price': 'mid_price_coupon'})
 
 implied_vol_mean = df_backtest['implied_vol'].mean()
 
+th = df_backtest['implied_vol'].std()
+
+print(implied_vol_mean, th)
+
+print()
+time.sleep(10)
+
+
+
+
 import pandas as pd
 
 # Set the threshold values
-upper_threshold = 0.002 # Threshold for selling option
-lower_threshold = -0.002  # Threshold for buying option
-close_threshold = 0.0001  # Threshold for clearing position
+upper_threshold = th # Threshold for selling option
+lower_threshold = -th  # Threshold for buying option
+close_threshold = th  # Threshold for clearing position
 
 # Initialize variables
 position = 0
