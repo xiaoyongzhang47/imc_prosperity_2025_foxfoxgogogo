@@ -19,6 +19,12 @@ class Product:
     PICNICBASKET1   = "PICNIC_BASKET1"
     PICNICBASKET2   = "PICNIC_BASKET2"
 
+    VOLCANICROCK    = "VOLCANIC_ROCK"
+    VR_VOUCHER_1000 = "VOLCANIC_ROCK_VOUCHER_10000"
+    VR_VOUCHER_1025 = "VOLCANIC_ROCK_VOUCHER_10250"
+    VR_VOUCHER_1050 = "VOLCANIC_ROCK_VOUCHER_10500"
+    VR_VOUCHER_0950 = "VOLCANIC_ROCK_VOUCHER_9500"
+    VR_VOUCHER_0975 = "VOLCANIC_ROCK_VOUCHER_9750"
 
 PARAMS = {
     Product.RAINFORESTRESIN: {
@@ -120,7 +126,21 @@ PARAMS = {
         "entry_threshold":1.5,
         "exit_threshould":0.5
         },
+    Product.VOLCANICROCK:  {
+        "take_width": 1,
+        "clear_width": 0,
+        "prevent_adverse": True,
+        "adverse_volume": 15,
+        "reversion_beta": -0.28,
+        "disregard_edge": 1,
+        "join_edge": 0,
+        "default_edge": 5,
+        }
+    
+    Product.
+    
     }
+
 
 
 class Trader:
@@ -138,99 +158,14 @@ class Trader:
             Product.DJEMBES:         60,
             Product.PICNICBASKET1:   60,
             Product.PICNICBASKET2:  100,
+            Product.VOLCANICROCK:   400,
+            Product.VR_VOUCHER_0950:200,
+            Product.VR_VOUCHER_0975:200,
+            Product.VR_VOUCHER_1000:200,
+            Product.VR_VOUCHER_1025:200,
+            Product.VR_VOUCHER_1050:200,
             }
 
-    # ------
-    # Round 1 fair values
-    # ------
-
-    def KELP_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
-        if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
-            best_ask = min(order_depth.sell_orders.keys())
-            best_bid = max(order_depth.buy_orders.keys())
-            filtered_ask = [
-                price
-                for price in order_depth.sell_orders.keys()
-                if abs(order_depth.sell_orders[price])
-                >= self.params[Product.KELP]["adverse_volume"]
-            ]
-            filtered_bid = [
-                price
-                for price in order_depth.buy_orders.keys()
-                if abs(order_depth.buy_orders[price])
-                >= self.params[Product.KELP]["adverse_volume"]
-            ]
-            mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
-            mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
-            if mm_ask == None or mm_bid == None:
-                if traderObject.get("kelp_last_price", None) == None:
-                    mmmid_price = (best_ask + best_bid) / 2
-                else:
-                    mmmid_price = traderObject["kelp_last_price"]
-            else:
-                mmmid_price = (mm_ask + mm_bid) / 2
-
-            if traderObject.get("kelp_last_price", None) != None:
-                last_price = traderObject["kelp_last_price"]
-                last_returns = (mmmid_price - last_price) / last_price
-                pred_returns = (
-                    last_returns * self.params[Product.KELP]["reversion_beta"]
-                )
-                fair = mmmid_price + (mmmid_price * pred_returns)
-            else:
-                fair = mmmid_price
-            traderObject["kelp_last_price"] = mmmid_price
-            return fair
-        return None
-
-    def SQUIDINK_fair_value(self, order_depth: OrderDepth, traderObject) -> float:
-        if len(order_depth.sell_orders) != 0 and len(order_depth.buy_orders) != 0:
-            best_ask = min(order_depth.sell_orders.keys())
-            best_bid = max(order_depth.buy_orders.keys())
-
-            filtered_ask = [
-                price
-                for price in order_depth.sell_orders.keys()
-                if abs(order_depth.sell_orders[price])
-                >= self.params[Product.SQUIDINK]["adverse_volume"]
-            ]
-            filtered_bid = [
-                price
-                for price in order_depth.buy_orders.keys()
-                if abs(order_depth.buy_orders[price])
-                >= self.params[Product.SQUIDINK]["adverse_volume"]
-            ]
-            
-            mm_ask = min(filtered_ask) if len(filtered_ask) > 0 else None
-            mm_bid = max(filtered_bid) if len(filtered_bid) > 0 else None
-            
-            if mm_ask == None or mm_bid == None:
-                if traderObject.get("squidink_last_price", None) == None:
-                    mmmid_price = (best_ask + best_bid) / 2
-                else:
-                    mmmid_price = traderObject["squidink_last_price"]
-            else:
-                mmmid_price = (mm_ask + mm_bid) / 2
-
-            
-            if traderObject.get("squidink_last_price", None) != None:
-                last_price = traderObject["squidink_last_price"]
-                last_returns = (mmmid_price - last_price) / last_price
-                pred_returns = (
-                    last_returns * self.params[Product.SQUIDINK]["reversion_beta"]
-                )
-
-                fair = mmmid_price + (mmmid_price * pred_returns)
-            else:
-                fair = mmmid_price
-            traderObject["squidink_last_price"] = mmmid_price
-
-            return fair
-        return None
-
-    # ------
-    # Round 2 fair values
-    # ------
 
     def fair_value(self, product:str,order_depth: OrderDepth, traderObject) -> float:
         
@@ -670,8 +605,7 @@ class Trader:
         # --------------------
         # RAINFORESTRESIN
         # --------------------
-
-        if Product.RAINFORESTRESIN in self.params and Product.RAINFORESTRESIN in state.order_depths:
+        if self.is_good_to_trade(Product.RAINFORESTRESIN, state):
             RAINFORESTRESIN_position = (
                 state.position[Product.RAINFORESTRESIN]
                 if Product.RAINFORESTRESIN in state.position
@@ -717,15 +651,14 @@ class Trader:
         # --------------------
         # KELP
         # --------------------
-
-        if Product.KELP in self.params and Product.KELP in state.order_depths:
+        if self.is_good_to_trade(Product.KELP, state):
             KELP_position = (
                 state.position[Product.KELP]
                 if Product.KELP in state.position
                 else 0
             )
-            KELP_fair_value = self.KELP_fair_value(
-                state.order_depths[Product.KELP], traderObject
+            KELP_fair_value = self.fair_value(
+                Product.KELP,state.order_depths[Product.KELP], traderObject
             )
             KELP_take_orders, buy_order_volume, sell_order_volume = (
                 self.take_orders(
@@ -769,12 +702,12 @@ class Trader:
         # --------------------
         # FKING SQUID_INK
         # --------------------
-        if Product.SQUIDINK in self.params and Product.SQUIDINK in state.order_depths and self.params[Product.SQUIDINK]["do_trade"]:
+        if self.is_good_to_trade(Product.SQUIDINK, state):
             
             # Get the current position and compute a fair value
             SQUIDINK_position = state.position.get(Product.SQUIDINK, 0)
-            SQUIDINK_fair_value = self.SQUIDINK_fair_value(
-                state.order_depths[Product.SQUIDINK], traderObject
+            SQUIDINK_fair_value = self.fair_value(
+                Product.SQUIDINK, state.order_depths[Product.SQUIDINK], traderObject
             )
             
             # --- Maintain a history of recent prices ---
@@ -793,7 +726,6 @@ class Trader:
             normalized_deviation = deviation / moving_average if moving_average != 0 else 0
             deviation_threshold = self.params[Product.SQUIDINK]["deviation_threshold"]
             
-
             # --- New: Compute the recent price slope ---
             # Only compute slope if we have a full window of data.
             if len(self.squidink_recent_prices) >= moving_average_window:
@@ -872,8 +804,7 @@ class Trader:
         jams_solo_trading: List[Order] = []
         djembes_solo_trading: List[Order] = []
 
-        
-        allow_solo_trading = random.random() < 0.7
+        allow_solo_trading = random.random() < 0.6
         # tracks their position as it
 
         CROISSANTS_position = 0
@@ -1051,8 +982,6 @@ class Trader:
         picnicbask1_is_good = self.is_good_to_trade(Product.PICNICBASKET1, state)
         picnicbask2_is_good = self.is_good_to_trade(Product.PICNICBASKET2, state)
 
-        
-        
         # --------------------
         # Pair: PICNICBASKET1 = 6 * CROISSANTS + 3 * JAMS + DJEMB  
         # Pair: PICNICBASKET2 = 4 * CROISSANTS + 2 * JAMS
@@ -1062,7 +991,7 @@ class Trader:
         prod_strength = 0.3
 
         wd_coef = 10
-        wd_coef2 = 5
+        wd_coef2 = 8
 
         if every_thing_is_good:
             # get positions
