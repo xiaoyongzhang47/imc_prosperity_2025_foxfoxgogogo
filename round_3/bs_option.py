@@ -82,7 +82,7 @@ df_volcanic_rock_call['delta'] = df_volcanic_rock_call.apply(lambda row: delta(r
 df_volcanic_rock_call['gamma'] = df_volcanic_rock_call.apply(lambda row: gamma(row['mid_price_volcanic_rock'], strike_price, time_to_expiry, row['implied_vol']), axis=1)
 df_volcanic_rock_call['vega'] = df_volcanic_rock_call.apply(lambda row: vega(row['mid_price_volcanic_rock'], strike_price, time_to_expiry, row['implied_vol']), axis=1)
 
-day = 1
+day = 2
 df = get_df(day)
 
 strike_price = 10000  
@@ -106,10 +106,10 @@ implied_vol_mean = df_backtest['implied_vol'].mean()
 
 th = df_backtest['implied_vol'].std()
 
-print(implied_vol_mean, th)
+# print(implied_vol_mean, th)
 
-print()
-time.sleep(10)
+# print()
+# time.sleep(10)
 
 
 
@@ -174,6 +174,7 @@ for trade in trade_history:
 
 print(f"\nFinal PnL: {pnl}")
 
+time.sleep(3)
 
 import pandas as pd
 
