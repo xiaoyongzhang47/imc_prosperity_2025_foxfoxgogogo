@@ -117,7 +117,7 @@ class Trader:
             params = PARAMS
         self.params = params
 
-        self.round = 2
+        self.round_number = 2
        
 
         # Limit definitions for products (VOLCANIC_ROCK for hedging and each voucher for directional trades)
@@ -129,11 +129,37 @@ class Trader:
             Product.VR_VOUCHER_1025: 200,
             Product.VR_VOUCHER_1050: 200,
         }
+
+        self.price_history = []  # List[float]
+        self.price_history_window = 60  
+    
+    def update_price_history(self, current_price: float):
+        self.price_history.append(current_price)
+        if len(self.price_history) > self.price_history_window:
+            self.price_history.pop(0)
+
+    def compute_realized_vol(self, product:str) -> float:
+        """
+        Compute the annualized realized volatility from the price history.
+        Assumes that each price sample is taken at a fixed interval.
+        """
+        if len(self.price_history) < 2:
+            return self.params[product]["mean_volatility"]
+        # Compute log returns
+        log_returns = np.diff(np.log(self.price_history))
+        # Standard deviation of log returns (per period)
+        vol = np.std(log_returns)
+
+        annualization_factor = np.sqrt(7)
+        realized_vol = vol * annualization_factor
+        
+        return realized_vol
+
         
     def voucher_starting_time_to_expiry_update(self):
         for product, params in self.params.items():
             if product.startswith("VOLCANIC_ROCK_VOUCHER"):
-                params["starting_time_to_expiry"] = self.round / 7
+                params["starting_time_to_expiry"] = self.round_number / 7
 
     def get_volcanic_rock_voucher_mid_price(
         self, voucher_order_depth: OrderDepth, traderData: Dict[str, Any]
@@ -183,6 +209,7 @@ class Trader:
                     else:
                         return ([Order(product, best_bid, -quantity)],
                                 [Order(product, best_bid, -quote_quantity)])
+                    
         elif vol_z_score <= -self.params[product]["zscore_threshold"]:
             if voucher_position != self.LIMIT[product]:
                 target_voucher_position = self.LIMIT[product]
@@ -230,6 +257,31 @@ class Trader:
         result: Dict[str, List[Order]] = {}
 
         self.voucher_starting_time_to_expiry_update()
+
+        # Update underlying price history with the current mid-price of VOLCANICROCK
+        if Product.VOLCANICROCK in state.order_depths:
+            vol_rock_depth = state.order_depths[Product.VOLCANICROCK]
+            if vol_rock_depth.buy_orders and vol_rock_depth.sell_orders:
+                best_bid = max(vol_rock_depth.buy_orders.keys())
+                best_ask = min(vol_rock_depth.sell_orders.keys())
+                volcanic_rock_mid_price = (best_bid + best_ask) / 2
+                self.update_price_history(volcanic_rock_mid_price)
+            else:
+                volcanic_rock_mid_price = self.price_history[-1] if self.price_history else 0
+        else:
+            volcanic_rock_mid_price = self.price_history[-1] if self.price_history else 0
+
+        # Compute realized volatility from underlying price history
+        
+        # Optionally update the mean volatility parameter for each voucher product
+        for product in self.params:
+            if product.startswith("VOLCANIC_ROCK_VOUCHER"):
+                realized_vol = self.compute_realized_vol(product)
+
+                current_mean = self.params[product]["mean_volatility"]
+                alpha = 0.3 # Learning rate
+                self.params[product]["mean_volatility"] = alpha * realized_vol + (1 - alpha) * current_mean
+
         # Ensure traderObject has an entry for every voucher product
         for product in self.params:
             if product.startswith("VOLCANIC_ROCK_VOUCHER"):

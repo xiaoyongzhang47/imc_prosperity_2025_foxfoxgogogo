@@ -108,7 +108,7 @@ PARAMS = {
         "mean_spread":-2.69245,
         "std_spread":85.4813,
         "entry_threshold":1.5,
-        "exit_threshould":0.5
+        "exit_threshould":0.3
         },
     Product.PICNICBASKET2: {
         "take_width": 1,            
@@ -125,7 +125,7 @@ PARAMS = {
         "mean_spread":-54.518,
         "std_spread":62.0239,
         "entry_threshold":1.5,
-        "exit_threshould":0.5
+        "exit_threshould":0.3
         },
     Product.VR_VOUCHER_1000: {
         "mean_volatility": 0.00776601703694467,
@@ -168,8 +168,6 @@ PARAMS = {
         "zscore_threshold": 20,
     },
     }
-
-
 
 class BlackScholes:
     @staticmethod
@@ -232,12 +230,13 @@ class BlackScholes:
         return volatility
 
 
-
 class Trader:
     def __init__(self, params=None):
         if params is None:
             params = PARAMS
         self.params = params
+
+        self.round = 2 # ROUND_NUMBER REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
 
         self.LIMIT = {
             Product.RAINFORESTRESIN: 50, 
@@ -250,7 +249,9 @@ class Trader:
             Product.PICNICBASKET1:   60,
             Product.PICNICBASKET2:  100,
 
+            # this is the effective limit: The true limit is 400
             Product.VOLCANICROCK:    400,
+
             Product.VR_VOUCHER_0950: 200,
             Product.VR_VOUCHER_0975: 200,
             Product.VR_VOUCHER_1000: 200,
@@ -258,7 +259,7 @@ class Trader:
             Product.VR_VOUCHER_1050: 200,
             }
 
-        self.round = 3 # ROUND_NUMBER REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
+        
 
         self.save_list = []
 
@@ -1083,7 +1084,7 @@ class Trader:
 
         UNITS = 5
         signal_strength = 1.0
-        prod_strength = 0.5
+        prod_strength = 0.7
 
         if croissant_ok and jams_ok and djembes_ok:
             # Execute trading on Picnic Basket 1: 6 CROISSANTS, 3 JAMS, 1 DJEMBES
@@ -1127,12 +1128,7 @@ class Trader:
             result[Product.DJEMBES] = djembes_orders
 
 
-
-
-
-
         # -------- round 3 -----------
-
 
         self.voucher_starting_time_to_expiry_update()
         # Ensure traderObject has an entry for every voucher product
@@ -1165,6 +1161,8 @@ class Trader:
                 continue
             if voucher_product not in state.order_depths:
                 continue
+
+            
 
             voucher_order_depth = state.order_depths[voucher_product]
             voucher_position = state.position.get(voucher_product, 0)

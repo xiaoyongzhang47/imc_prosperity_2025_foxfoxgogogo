@@ -235,9 +235,7 @@ class Trader:
             Product.PICNICBASKET1:   60,
             Product.PICNICBASKET2:  100,
 
-            # Product.VOLCANICROCK:   400,
-
-            Product.VOLCANICROCK:   100,
+            Product.VOLCANICROCK:   400,
 
             Product.VR_VOUCHER_0950:200,
             Product.VR_VOUCHER_0975:200,

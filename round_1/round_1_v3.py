@@ -50,6 +50,10 @@ PARAMS = {
     },
 }
 
+#TODO: 
+# 1. Merge the fucntion with the same structure, with one funciton
+# 2. The SQUID INK price have a patter that gradually grow and a sudden drop, try to make a stratage based on that part
+
 
 class Trader:
     def __init__(self, params=None):
@@ -314,7 +318,6 @@ class Trader:
         )
         return orders, buy_order_volume, sell_order_volume
     
-
     def make_orders(
     self,
     product,
@@ -382,14 +385,12 @@ class Trader:
 
         return orders, buy_order_volume, sell_order_volume
 
-
     def run(self, state: TradingState):
         traderObject = {}
         if state.traderData != None and state.traderData != "":
             traderObject = jsonpickle.decode(state.traderData)
 
         result = {}
-
 
         if Product.RAINFORESTRESIN in self.params and Product.RAINFORESTRESIN in state.order_depths:
             RAINFORESTRESIN_position = (
@@ -516,14 +517,6 @@ class Trader:
 
             slope_threshold = self.params[Product.SQUIDINK].get("slope_threshold")
 
-            # Optionally save deviation history (for debugging or offline analysis)
-            # if not hasattr(self, 'slop_fun'):
-            #     self.slop_fun = []
-                
-            # self.slop_fun.append(slope)
-            # np.savetxt('slope2.csv', self.slop_fun, delimiter=',', fmt='%f')
-            
-            
             delta = 0.01  # small adjustment factor
             
             if normalized_deviation > deviation_threshold and slope < slope_threshold:

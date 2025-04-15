@@ -20,7 +20,7 @@ class Product:
     PICNICBASKET1   = "PICNIC_BASKET1"
     PICNICBASKET2   = "PICNIC_BASKET2"
 
-    VOLCANICROCK = "VOLCANIC_ROCK"
+    VOLCANICROCK    = "VOLCANIC_ROCK"
     VR_VOUCHER_1000 = "VOLCANIC_ROCK_VOUCHER_10000"
     VR_VOUCHER_1025 = "VOLCANIC_ROCK_VOUCHER_10250"
     VR_VOUCHER_1050 = "VOLCANIC_ROCK_VOUCHER_10500"
@@ -230,8 +230,6 @@ class BlackScholes:
                 low_vol = volatility
             volatility = (low_vol + high_vol) / 2.0
         return volatility
-
-
 
 class Trader:
     def __init__(self, params=None):

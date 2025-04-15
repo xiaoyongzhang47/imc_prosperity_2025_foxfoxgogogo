@@ -54,8 +54,8 @@ PARAMS = {
         "beta": 0.98641,
         "mean_spread": -2.69245,
         "std_spread": 85.4813,
-        "entry_threshold": 1.5,
-        "exit_threshold": 0.2
+        "entry_threshold": 0.3,
+        "exit_threshold": 1.1
     },
     Product.PICNICBASKET2: {
         "take_width": 1,
@@ -71,7 +71,7 @@ PARAMS = {
         "mean_spread": -54.518,
         "std_spread": 62.0239,
         "entry_threshold": 1.5,
-        "exit_threshold": 0.2
+        "exit_threshold": 1.2
     },
 }
 
@@ -369,7 +369,7 @@ class Trader:
 
         UNITS = 5
         signal_strength = 1.0
-        prod_strength = 0.5
+        prod_strength = 1.0
 
         if croissant_ok and jams_ok and djembes_ok:
             # Execute trading on Picnic Basket 1: 6 CROISSANTS, 3 JAMS, 1 DJEMBES

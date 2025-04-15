@@ -78,8 +78,7 @@ strike_price = {
                 }    # Can be customized per voucher if required
 
 
-
-time_to_expiry = 7      # In years
+time_to_expiry = 7    
 
 # Dictionaries to store processed DataFrames and summary stats
 voucher_data = {}
@@ -165,7 +164,7 @@ def backtest_voucher(df_backtest, threshold_mult=1.0):
     return trade_history, pnl
 
 # Run backtesting for each voucher and print trade history and PnL
-do_backtest=False
+do_backtest=True
 if do_backtest:
     for voucher, df_voucher in voucher_data.items():
         # Rename columns for clarity in backtest: coupon price (option price) and underlying price
