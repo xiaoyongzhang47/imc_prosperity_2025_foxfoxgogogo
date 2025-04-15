@@ -236,7 +236,7 @@ class Trader:
             params = PARAMS
         self.params = params
 
-        self.ROUND = 2 # ROUND_NUMBER REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
+        self.ROUND = 3 # ROUND_NUMBER REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
 
         self.LIMIT = {
             Product.RAINFORESTRESIN: 50, 
