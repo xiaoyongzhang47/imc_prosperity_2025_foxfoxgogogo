@@ -236,7 +236,8 @@ class Trader:
             params = PARAMS
         self.params = params
 
-        self.ROUND = 3 # ROUND_NUMBER REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
+        self.ROUND = 1
+        # ROUND_NUMBER REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
 
         self.LIMIT = {
             Product.RAINFORESTRESIN: 50, 
@@ -757,7 +758,7 @@ class Trader:
     def voucher_starting_time_to_expiry_update(self):
         for product, params in self.params.items():
             if product.startswith("VOLCANIC_ROCK_VOUCHER"):
-                params["starting_time_to_expiry"] = (7 - self.ROUND) / 7
+                params["starting_time_to_expiry"] = (8 - self.ROUND) / 7
 
     def get_volcanic_rock_voucher_mid_price(
         self, voucher_order_depth: OrderDepth, traderData: Dict[str, Any]
@@ -1200,7 +1201,7 @@ class Trader:
             volcanic_rock_order_depth, volcanic_rock_position, net_voucher_delta_exposure
         )
         
-        if hedge_orders and random.random() < 1.0/52.0:
+        if hedge_orders and random.random() < 7. / 10_000:
              result[Product.VOLCANICROCK] = hedge_orders
 
         conversions = 1
