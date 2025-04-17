@@ -5,181 +5,143 @@ from scipy.optimize import brentq
 import time
 
 # --- Data Loading Functions ---
-def get_df(day):
+def get_df(day: int) -> pd.DataFrame:
     file_name = f"./round-3-island-data-bottle/prices_round_3_day_{day}.csv"
     return pd.read_csv(file_name, sep=';')
 
-def get_product(df, product):
+def get_product(df: pd.DataFrame, product: str) -> pd.DataFrame:
     return df[df['product'] == product].copy()
 
-def get_first_two_dfs():
-    first_df = get_df(1)
-    second_df = get_df(2)
-    second_df['timestamp'] = second_df['timestamp'] + 1000000
-    return pd.concat([first_df, second_df])
+def get_combined_data() -> pd.DataFrame:
+    # Concatenate day 1 and day 2 (with adjusted timestamps)
+    df1 = get_df(1)
+    df2 = get_df(2)
+    df2['timestamp'] += 1_000_000
+    return pd.concat([df1, df2], ignore_index=True)
 
-# --- Black-Scholes and Greeks Functions ---
-def black_scholes_call(spot, strike, time_to_expiry, volatility):
-    d1 = (np.log(spot / strike) + 0.5 * volatility ** 2 * time_to_expiry) / (volatility * np.sqrt(time_to_expiry))
-    d2 = d1 - volatility * np.sqrt(time_to_expiry)
-    return spot * norm.cdf(d1) - strike * norm.cdf(d2)
+# --- Black‐Scholes and Implied‐Vol Functions ---
+def black_scholes_call(S, K, t, vol):
+    d1 = (np.log(S / K) + 0.5 * vol**2 * t) / (vol * np.sqrt(t))
+    d2 = d1 - vol * np.sqrt(t)
+    return S * norm.cdf(d1) - K * norm.cdf(d2)
 
-def delta(spot, strike, time_to_expiry, volatility):
-    d1 = (np.log(spot) - np.log(strike) + 0.5 * volatility ** 2 * time_to_expiry) / (volatility * np.sqrt(time_to_expiry))
-    return norm.cdf(d1)
-
-def gamma(spot, strike, time_to_expiry, volatility):
-    d1 = (np.log(spot) - np.log(strike) + 0.5 * volatility ** 2 * time_to_expiry) / (volatility * np.sqrt(time_to_expiry))
-    return norm.pdf(d1) / (spot * volatility * np.sqrt(time_to_expiry))
-
-def vega(spot, strike, time_to_expiry, volatility):
-    d1 = (np.log(spot) - np.log(strike) + 0.5 * volatility ** 2 * time_to_expiry) / (volatility * np.sqrt(time_to_expiry))
-    return norm.pdf(d1) * (spot * np.sqrt(time_to_expiry)) / 100
-
-def implied_volatility(call_price, spot, strike, time_to_expiry):
-    def equation(vol):
-        return black_scholes_call(spot, strike, time_to_expiry, vol) - call_price
+def implied_volatility(C, S, K, t):
+    # Brent‐q root‑find, fallback to NaN on failure
+    def f(vol): return black_scholes_call(S, K, t, vol) - C
     try:
-        iv = brentq(equation, 1e-10, 3.0, xtol=1e-10)
+        return brentq(f, 1e-8, 5.0, xtol=1e-8)
     except ValueError:
-        iv = np.nan
-    return iv
+        return np.nan
 
-# --- (Optional) Realized Volatility Calculation ---
-def realized_vol(df, window, step_size):
-    ret_col = f'log_return_{step_size}'
-    vol_col = f'realized_vol_{step_size}'
-    df[ret_col] = np.log(df['mid_price_volcanic_rock'] / df['mid_price_volcanic_rock'].shift(step_size))
-    dt = step_size / (7 * 10000)
-    df[vol_col] = df[ret_col].rolling(window=window).apply(lambda x: np.mean(x[::step_size] ** 2) / dt)
-    df[vol_col] = np.sqrt(df[vol_col])
-    return df
-
-# --- Main Processing ---
-df = get_first_two_dfs()
-df_volcanic_rock = get_product(df, 'VOLCANIC_ROCK')
-
-
-
-# List of all 5 voucher products
-voucher_products = [
-    "VOLCANIC_ROCK_VOUCHER_10000",
-    "VOLCANIC_ROCK_VOUCHER_10250",
-    "VOLCANIC_ROCK_VOUCHER_10500",
-    "VOLCANIC_ROCK_VOUCHER_9500",
-    "VOLCANIC_ROCK_VOUCHER_9750"
-]
-
-# Common parameters (adjust per product if needed)
-strike_price = { 
-    "VOLCANIC_ROCK_VOUCHER_10000": 10000,
-    "VOLCANIC_ROCK_VOUCHER_10250": 10250,
-    "VOLCANIC_ROCK_VOUCHER_10500": 10500,
-    "VOLCANIC_ROCK_VOUCHER_9500" :  9500,
-    "VOLCANIC_ROCK_VOUCHER_9750" :  9750
-                }    # Can be customized per voucher if required
-
-
-time_to_expiry = 7   
-# in number of rounds
-
-# Dictionaries to store processed DataFrames and summary stats
-voucher_data = {}
-summary = {}
-
-# Process each voucher: merge with underlying data and compute greeks
-for voucher in voucher_products:
-    df_voucher = get_product(df, voucher)
-    # Merge with underlying's mid_price using timestamp
-    df_voucher = df_voucher.merge(
-        df_volcanic_rock[['timestamp', 'mid_price']],
-        on='timestamp',
-        suffixes=('', '_volcanic_rock')
-    )
-    # Compute implied volatility and greeks (delta, gamma, vega)
-    df_voucher['implied_vol'] = df_voucher.apply(
-        lambda row: implied_volatility(row['mid_price'], row['mid_price_volcanic_rock'], strike_price[voucher], time_to_expiry),
-        axis=1
-    )
-    df_voucher['delta'] = df_voucher.apply(
-        lambda row: delta(row['mid_price_volcanic_rock'], strike_price[voucher], time_to_expiry, row['implied_vol']),
-        axis=1
-    )
-    df_voucher['gamma'] = df_voucher.apply(
-        lambda row: gamma(row['mid_price_volcanic_rock'], strike_price[voucher], time_to_expiry, row['implied_vol']),
-        axis=1
-    )
-    df_voucher['vega'] = df_voucher.apply(
-        lambda row: vega(row['mid_price_volcanic_rock'], strike_price[voucher], time_to_expiry, row['implied_vol']),
-        axis=1
-    )
-    # Collect summary statistics
-    mean_vol = df_voucher['implied_vol'].mean()
-    std_vol = df_voucher['implied_vol'].std()
-    summary[voucher] = {'mean_implied_vol': mean_vol, 'std_implied_vol': std_vol}
-    voucher_data[voucher] = df_voucher
-
-df_summary = pd.DataFrame.from_dict(summary, orient='index')
-df_summary.to_csv("summary_parameters.csv", index=True)
-
-# Output summary statistics for each voucher
-for voucher, stats in summary.items():
-    print(f"{voucher}: Mean Implied Vol = {stats['mean_implied_vol']:.6f}, Std = {stats['std_implied_vol']:.6f}")
-
-# --- Backtesting Simulation (Optional) ---
-def backtest_voucher(df_backtest, threshold_mult=1.0):
-    # Set thresholds based on implied vol std
-    upper_threshold = threshold_mult * df_backtest['implied_vol'].std()
-    lower_threshold = -upper_threshold
-    implied_vol_mean = df_backtest['implied_vol'].mean()
+# --- Backtest Strategy: volatility z‑score bands ---
+def backtest_zscore(df, mean_iv, std_iv, threshold_mult):
+    upper = mean_iv + threshold_mult * std_iv
+    lower = mean_iv - threshold_mult * std_iv
     position = 0
-    pnl = 0
-    trade_history = []
-    
-    for idx, row in df_backtest.iterrows():
-        if idx == 0:
-            continue
-        implied_vol = row['implied_vol']
-        mid_price_coupon = row['mid_price']
-        mid_price_underlying = row['mid_price_volcanic_rock']
-        d = row['delta']
-        
-        # Entry conditions (open position if no current exposure)
-        if implied_vol > implied_vol_mean + upper_threshold and position == 0:
-            position = -1
-            entry_price_coupon = mid_price_coupon
-            entry_price_underlying = mid_price_underlying
-            trade_history.append(("Sell", entry_price_coupon, entry_price_underlying, implied_vol))
-        elif implied_vol < implied_vol_mean + lower_threshold and position == 0:
-            position = 1
-            entry_price_coupon = mid_price_coupon
-            entry_price_underlying = mid_price_underlying
-            trade_history.append(("Buy", entry_price_coupon, entry_price_underlying, implied_vol))
-        # Exit condition: price reverts toward the mean
-        elif abs(implied_vol - implied_vol_mean) <= upper_threshold and position != 0:
-            pnl += position * (mid_price_coupon - entry_price_coupon + d * (entry_price_underlying - mid_price_underlying))
-            trade_history.append(("Close", mid_price_coupon, mid_price_underlying, implied_vol))
-            position = 0
-    
-    if position != 0:
-        pnl += position * (mid_price_coupon - entry_price_coupon + d * (entry_price_underlying - mid_price_underlying))
-        
-    return trade_history, pnl
+    pnl = 0.0
+    entry = None
 
-# Run backtesting for each voucher and print trade history and PnL
-do_backtest=True
-if do_backtest:
-    for voucher, df_voucher in voucher_data.items():
-        # Rename columns for clarity in backtest: coupon price (option price) and underlying price
-        df_backtest = df_voucher[['timestamp', 'mid_price', 'mid_price_volcanic_rock', 'implied_vol', 'delta', 'vega']].rename(
-            columns={'mid_price': 'mid_price'}
+    for _, row in df.iterrows():
+        iv = row['implied_vol']
+        opt_mid = row['mid_price']
+        under_mid = row['mid_price_volcanic_rock']
+        delta = row['delta']
+
+        if position == 0:
+            if iv > upper:
+                position = -1
+                entry = (opt_mid, under_mid, delta)
+            elif iv < lower:
+                position = 1
+                entry = (opt_mid, under_mid, delta)
+        else:
+            if lower <= iv <= upper:
+                e_opt, e_under, e_delta = entry
+                pnl += position * (opt_mid - e_opt + e_delta * (e_under - under_mid))
+                position = 0
+                entry = None
+
+    # Close any open position at last price
+    if position != 0 and entry is not None:
+        opt_mid, under_mid, delta = entry
+        pnl += position * (opt_mid - opt_mid + delta * (under_mid - under_mid))
+
+    return pnl
+
+# --- Calibration Script ---
+if __name__ == "__main__":
+    # Load data
+    df_all = get_combined_data()
+    df_under = get_product(df_all, 'VOLCANIC_ROCK')
+
+    voucher_list = [
+        "VOLCANIC_ROCK_VOUCHER_10000",
+        "VOLCANIC_ROCK_VOUCHER_10250",
+        "VOLCANIC_ROCK_VOUCHER_10500",
+        "VOLCANIC_ROCK_VOUCHER_9500",
+        "VOLCANIC_ROCK_VOUCHER_9750"
+    ]
+    strikes = {
+        "VOLCANIC_ROCK_VOUCHER_10000": 10000,
+        "VOLCANIC_ROCK_VOUCHER_10250": 10250,
+        "VOLCANIC_ROCK_VOUCHER_10500": 10500,
+        "VOLCANIC_ROCK_VOUCHER_9500": 9500,
+        "VOLCANIC_ROCK_VOUCHER_9750": 9750
+    }
+    tte = 7  # time‐to‐expiry in same units as timestamps
+
+    results = []
+    for voucher in voucher_list:
+        # Merge with underlying mid price
+        df_v = get_product(df_all, voucher)
+        df_v = df_v.merge(
+            df_under[['timestamp', 'mid_price']],
+            on='timestamp',
+            suffixes=('', '_volcanic_rock')
+        ).dropna()
+
+        # Compute implied vol and delta
+        df_v['implied_vol'] = df_v.apply(
+            lambda r: implied_volatility(r['mid_price'],
+                                         r['mid_price_volcanic_rock'],
+                                         strikes[voucher], tte),
+            axis=1
         )
-        trades, final_pnl = backtest_voucher(df_backtest)
-        
-        print(f"\nBacktest for {voucher}: Final PnL = {final_pnl}")
-        print("Trade History:")
-        for trade in trades:
-            print(trade)
+        df_v['delta'] = df_v.apply(
+            lambda r: norm.cdf((np.log(r['mid_price_volcanic_rock']/strikes[voucher])+
+                                0.5*r['implied_vol']**2*tte)/
+                               (r['implied_vol']*np.sqrt(tte))),
+            axis=1
+        )
+        df_v.dropna(subset=['implied_vol'], inplace=True)
 
+        # Fit expected‐vol quadratic: iv ≈ a*m^2 + b
+        m = np.log(strikes[voucher] / df_v['mid_price_volcanic_rock']) / np.sqrt(tte)
+        Y = df_v['implied_vol'].values
+        X = np.vstack([m**2, np.ones_like(m)]).T
+        a, b = np.linalg.lstsq(X, Y, rcond=None)[0]
 
-time.sleep(3)
+        # Optimize z‐score multiplier
+        mean_iv = df_v['implied_vol'].mean()
+        std_iv  = df_v['implied_vol'].std()
+        best_pnl, best_thresh = -np.inf, None
+        for mult in np.linspace(0.5, 3.0, 51):
+            pnl = backtest_zscore(df_v, mean_iv, std_iv, mult)
+            if pnl > best_pnl:
+                best_pnl, best_thresh = pnl, mult
+
+        results.append({
+            'voucher': voucher,
+            'a': a, 'b': b,
+            'mean_iv': mean_iv,
+            'std_iv': std_iv,
+            'best_z_mult': best_thresh,
+            'best_pnl': best_pnl
+        })
+
+    # Display & save results
+    df_res = pd.DataFrame(results)
+    print(df_res.to_string(index=False))
+    df_res.to_csv("calibration_results.csv", index=False)
+
+    time.sleep(1)

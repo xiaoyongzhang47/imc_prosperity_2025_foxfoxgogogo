@@ -228,7 +228,7 @@ class BlackScholes:
 
 class Trader:
     def __init__(self, params=None):
-        self.ROUND = 3
+        self.ROUND = 4
         # ROUND REMEMBER TO CHANGE IT!!!!!!!!!!!!!!!!!!
 
         if params is None:
@@ -1184,15 +1184,16 @@ class Trader:
         self.recent_exposures.append(net_voucher_delta_exposure)
 
         exposure_window_size = 20
+
         if len(self.recent_exposures) > exposure_window_size:
             self.recent_exposures.pop(0)
 
             mean = np.mean(self.recent_exposures)
             std  = np.std(self.recent_exposures) 
+            std = max(std, 1e-8)
 
             z_limit = 2
             zscore = abs(net_voucher_delta_exposure - mean) / std
-
 
             # for z_limit extraction
             # self.save_list.append(zscore)
@@ -1209,19 +1210,7 @@ class Trader:
                 if hedge_orders:
                     result[Product.VOLCANICROCK] = hedge_orders
             else:
-
-                delta_expo_mean = -626.082
-                delta_expo_std = 52.1088
-
-                zscore = abs(net_voucher_delta_exposure - delta_expo_mean)/delta_expo_std
-                
-                if zscore > 3:
-                    
-                    volcanic_rock_position = state.position.get(Product.VOLCANICROCK, 0)
-                    hedge_orders = self.compute_volcanic_rock_hedge_orders(volcanic_rock_order_depth, volcanic_rock_position, net_voucher_delta_exposure)
-
-                    if hedge_orders:
-                        result[Product.VOLCANICROCK] = hedge_orders
-
+                pass
+             
         traderDataEncoded = jsonpickle.encode(traderObject)
         return result, 1, traderDataEncoded
