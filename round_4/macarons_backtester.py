@@ -14,7 +14,7 @@ from datamodel import (
     ConversionObservation,
     Observation,
 )
-from macarons_only_v1 import Trader, Product  # the agent you built earlier
+from macarons_only_v2 import Trader, Product  # the agent you built earlier
 
 # --------------------------------------------------------------
 #  Helper constructors
@@ -73,7 +73,7 @@ def backtest_day(
     obs_df = pd.read_csv(observations_csv)
 
     # Keep only the macaron rows to speed things up
-    prices = prices[prices["product"] == Product.MACARONS]
+    prices = prices[prices["product"] == "MAGNIFICENT_MACARONS"]
 
     # Groups by timestamp for quick lookup
     price_groups = prices.groupby("timestamp")
@@ -85,18 +85,18 @@ def backtest_day(
     trader_data: str = ""
 
     cash: float = start_cash
-    position: Dict[str, int] = {Product.MACARONS: 0}
+    position: Dict[str, int] = {"MAGNIFICENT_MACARONS": 0}
 
     # A single listing is enough for the Trader – denomination hard‑coded
-    listings = {Product.MACARONS: Listing(Product.MACARONS, Product.MACARONS, "SEASHELLS")}
+    listings = {"MAGNIFICENT_MACARONS": Listing("MAGNIFICENT_MACARONS", "MAGNIFICENT_MACARONS", "SEASHELLS")}
 
     for ts in timestamps:
         # ------- Build OrderBook & observations for this tick -------
         book_row = price_groups.get_group(ts).iloc[0]
-        depth = {Product.MACARONS: build_order_depth(book_row)}
+        depth = {"MAGNIFICENT_MACARONS": build_order_depth(book_row)}
 
         conv_row = obs_groups.get_group(ts).iloc[0]
-        conv_obs = {Product.MACARONS: build_conversion_obs(conv_row)}
+        conv_obs = {"MAGNIFICENT_MACARONS": build_conversion_obs(conv_row)}
         observation = Observation(plainValueObservations={}, conversionObservations=conv_obs)
 
         state = TradingState(
@@ -114,16 +114,16 @@ def backtest_day(
 
         # -------- Simulate conversion at mid‑price (up to ±10) --------
         if conversion_req:
-            conv_mid = (conv_obs[Product.MACARONS].bidPrice + conv_obs[Product.MACARONS].askPrice) / 2
+            conv_mid = (conv_obs["MAGNIFICENT_MACARONS"].bidPrice + conv_obs["MAGNIFICENT_MACARONS"].askPrice) / 2
             cash -= conversion_req * conv_mid
-            position[Product.MACARONS] += conversion_req
+            position["MAGNIFICENT_MACARONS"] += conversion_req
 
         # -------- Naïve fills against top of book --------------------
-        ob = depth[Product.MACARONS]
+        ob = depth["MAGNIFICENT_MACARONS"]
         best_bid = max(ob.buy_orders) if ob.buy_orders else None
         best_ask = min(ob.sell_orders) if ob.sell_orders else None
 
-        for order in orders_dict.get(Product.MACARONS, []):
+        for order in orders_dict.get("MAGNIFICENT_MACARONS", []):
             filled = False
             if order.quantity > 0 and best_ask is not None and order.price >= best_ask:
                 filled = True
@@ -135,23 +135,25 @@ def backtest_day(
             if filled:
                 qty = order.quantity
                 cash -= qty * fill_price  # buy: negative cash; sell: positive cash (qty is signed)
-                position[Product.MACARONS] += qty
+                position["MAGNIFICENT_MACARONS"] += qty
 
         # ---- Periodic PnL snapshot (optional) ----
         mid_price = book_row["mid_price"]
-        pnl = cash + position[Product.MACARONS] * mid_price
+        pnl = cash + position["MAGNIFICENT_MACARONS"] * mid_price
 
     print("==============================")
-    print(f"Final inventory : {position[Product.MACARONS]} units")
+    print(f"Final inventory : {position["MAGNIFICENT_MACARONS"]} units")
     print(f"End‑of‑day PnL  : {pnl:.2f} shells")
     return pnl
 
 
 if __name__ == "__main__":
-    ROOT = Path("./round_4/round-4-island-data-bottle")  # adjust to match your folder structure
+    import sys
 
-    day = 3
-    
+    ROOT = Path("./round-4-island-data-bottle")  # adjust to match your folder structure
+
+    day = sys.argv[1]
+
     backtest_day(
         prices_csv=ROOT / f"prices_round_4_day_{day}.csv",
         observations_csv=ROOT / f"observations_round_4_day_{day}.csv",

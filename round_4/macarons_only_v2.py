@@ -18,6 +18,8 @@ PARAMS = {
         "dec_edge_discount": 0.80,      # edge‑reduction profitability factor
         "volume_avg_window": 5,         # how many stamps to average over
         "take_edge": 0.25,               # width for aggressive taking
+
+
     }
 }
 
@@ -80,75 +82,82 @@ class Trader:
 
         cache["edge"] = curr_edge
         return curr_edge
+    
+        # ---------------------------------------------------------
 
     # ---------------------------------------------------------
-    # Aggressive take / market‑making logic
+    #  Arbitrage‑first quoting logic
     # ---------------------------------------------------------
     def _quote_macarons(
         self,
         depth: OrderDepth,
-        obs: ConversionObservation,
-        pos: int,
-        edge: float,
+        obs:   ConversionObservation,
+        pos:   int,
+        edge:  float,
     ) -> List[Order]:
-        conf = self.params[Product.MACARONS]
+
+        conf   = self.params[Product.MACARONS]
+        limit  = POSITION_LIMITS[Product.MACARONS]
         orders: List[Order] = []
-        limit = POSITION_LIMITS[Product.MACARONS]
 
+        # ---------- fair values ----------
         implied_bid, implied_ask = implied_bid_ask(obs)
-        take_width = conf["take_edge"]
+        implied_mid              = 0.5 * (implied_bid + implied_ask)
 
-        if not hasattr(self, 'save_list'):
-            self.save_list = []
-                
-       
+        book_best_bid = max(depth.buy_orders)  if depth.buy_orders else None
+        book_best_ask = min(depth.sell_orders) if depth.sell_orders else None
+        if book_best_bid is None or book_best_ask is None:
+            return orders                                       # empty book → nothing to do
         
+        book_mid = 0.5 * (book_best_bid + book_best_ask)
 
+        # ---------- conversion‑arbitrage thresholds ----------
+        arb_th     = conf.get("arb_threshold", 1.75)            # ≃ the 1.75‑peak you saw
+        take_size  = conf.get("arb_take_qty", 25)               # how much to lift / hit each tick
 
-        # 1) Aggressive taking if book crosses implied fair value by > take_width
-        if depth.sell_orders:
+        diff = implied_mid - book_mid                           # >0 ⇒ local cheap vs foreign
 
-            
+        # Optionally save deviation history (for debugging or offline analysis)
+        # if not hasattr(self, 'save_list'):
+        #     self.save_list = []
+                
+        # self.save_list.append(diff)
+        
+        # np.savetxt('diff.csv', self.save_list, delimiter=',', fmt='%f')
 
-            best_ask = min(depth.sell_orders)
+        
+        
+        # --- Case ①  local market is under‑priced → BUY locally, convert/export, then flatten
+        if diff > arb_th and pos < limit:
+            ask_vol = -depth.sell_orders[book_best_ask]
+            qty     = clamp(min(take_size, ask_vol), 0, limit - pos)
+            if qty:
+                orders.append(Order(Product.MACARONS, book_best_ask,  qty))
+                pos += qty                                      # optimistic fill
 
+        # --- Case ②  local market is over‑priced → SELL locally, convert/import, then flatten
+        elif diff < -arb_th and pos > -limit:
+            bid_vol =  depth.buy_orders[book_best_bid]
+            qty     = clamp(min(take_size, bid_vol), 0, limit + pos)
+            if qty:
+                orders.append(Order(Product.MACARONS, book_best_bid, -qty))
+                pos -= qty
 
-            ask_vol = -depth.sell_orders[best_ask]
-            if best_ask < implied_bid - take_width and pos < limit:
-                qty = clamp(ask_vol, 0, limit - pos)
-                if qty:
-                    orders.append(Order(Product.MACARONS, best_ask, qty))
-                    pos += qty
+        # ---------- passive maker of last resort ----------
+        # If no arb trade executed above, post a tight two‑sided quote for flow capture
+        if not orders:
+            passive_bid = round(implied_bid - edge)
+            passive_ask = round(implied_ask + edge)
 
-        if depth.buy_orders:
-            best_bid = max(depth.buy_orders)
-            bid_vol = depth.buy_orders[best_bid]
+            bid_qty = clamp(limit - pos, 0, conf["volume_bar"])
+            ask_qty = clamp(limit + pos, 0, conf["volume_bar"])
 
-            # self.save_list.append(implied_ask - best_bid)
-            # np.savetxt('buy_order.csv', self.save_list, delimiter=',', fmt='%f')
-            
-            if best_bid > implied_ask + take_width and pos > -limit:
-                qty = clamp(bid_vol, 0, limit + pos)
-                if qty:
-                    orders.append(Order(Product.MACARONS, best_bid, -qty))
-                    pos -= qty
-
-        # 2) Passive market‑making quotes around implied fair
-
-        passive_bid = round(implied_bid - edge)
-        passive_ask = round(implied_ask + edge)
-
-        # Clip passive quote size so that combined with existing inventory we stay inside limits
-        bid_qty = clamp(limit - pos, 0, conf["volume_bar"])
-        ask_qty = clamp(limit + pos, 0, conf["volume_bar"])
-
-        if bid_qty:
-            orders.append(Order(Product.MACARONS, passive_bid, bid_qty))
-        if ask_qty:
-            orders.append(Order(Product.MACARONS, passive_ask, -ask_qty))
+            if bid_qty:
+                orders.append(Order(Product.MACARONS, passive_bid,  bid_qty))
+            if ask_qty:
+                orders.append(Order(Product.MACARONS, passive_ask, -ask_qty))
 
         return orders
-
     # ---------------------------------------------------------
     # Main entry
     # ---------------------------------------------------------
