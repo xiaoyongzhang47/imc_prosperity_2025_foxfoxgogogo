@@ -1,12 +1,11 @@
-from datamodel import OrderDepth, UserId, TradingState, Order
+from datamodel import OrderDepth, UserId, TradingState, Order, ConversionObservation
+import collections
 from typing import List, Dict, Any, Tuple, Optional
-import string 
 import jsonpickle # type: ignore
 import numpy as np
-from math import log, sqrt, exp
+from math import log, sqrt
 from statistics import NormalDist
 import random
-import time
 
 class Product:
     KELP            = "KELP"
@@ -26,6 +25,8 @@ class Product:
     VR_VOUCHER_1050 = "VOLCANIC_ROCK_VOUCHER_10500"
     VR_VOUCHER_0950 = "VOLCANIC_ROCK_VOUCHER_9500"
     VR_VOUCHER_0975 = "VOLCANIC_ROCK_VOUCHER_9750"
+
+    MACARONS        = "MAGNIFICENT_MACARONS"
 
 PARAMS = {
     Product.RAINFORESTRESIN: {
@@ -160,6 +161,12 @@ PARAMS = {
     },
     Product.VOLCANICROCK:{
         "hedge_strength": 0.2
+    },
+    
+    Product.MACARONS: {
+        "mr_band_width": 1,
+        "mr_trade_qty": 75,
+        "mr_gap_win_sz": 50
     }
     }
 
@@ -229,6 +236,10 @@ class BlackScholes:
         return a * (m_t ** 2) + b
 
 
+def clamp(value: int, low: int, high: int) -> int:
+    return max(low, min(high, value))
+
+
 class Trader:
     def __init__(self, params=None):
         self.ROUND = 4
@@ -257,9 +268,12 @@ class Trader:
             Product.VR_VOUCHER_1000: 200,
             Product.VR_VOUCHER_1025: 200,
             Product.VR_VOUCHER_1050: 200,
+
+            Product.MACARONS: 75
             }
 
         self.save_list = []
+        self.CONVERSION_LIMIT = 10  # max ±10 conversion per tick
 
 
     def fair_value(self, product: str, order_depth: OrderDepth, traderObject: dict) -> float:
@@ -849,7 +863,99 @@ class Trader:
                 orders.append(Order(Product.VOLCANICROCK, best_bid, -quantity))
         return orders
 
+    # ---------------------
+    # MACARON TRADING. FOREIGIN/DEMON. 
+    # --------------------- 
+
+
+    def implied_bid_ask(self, obs: ConversionObservation) -> Tuple[float, float]:
+        bid = obs.bidPrice - obs.exportTariff - obs.transportFees - 0.1
+        ask = obs.askPrice + obs.importTariff + obs.transportFees
+        return bid, ask
+
+    def _quote_mean_reversion(
+        self,
+        depth: OrderDepth,
+        implied_mid: float,
+        pos: int,
+        
+    ) -> List[Order]:
+        conf = self.params[Product.MACARONS]
+        orders: List[Order] = []
+        limit = self.LIMIT[Product.MACARONS]
+
+        if not depth.buy_orders or not depth.sell_orders:
+            return orders
+
+
+        # # on first call, init the history list
+        # if not hasattr(self, 'pos_list'):
+        #     self.pos_list = []
+
+        # self.pos_list.append(pos)
+        # if len(self.pos_list) > conf["mr_pos_avg_window"]:
+        #     self.pos_list.pop(0)
+
+        # mean_pos = np.mean(self.pos_list)
+
+        # # 4) inventory‐bias adjustment
+        # pos_th    = 50
+        # delta_gap = 0.25
+
+        # if mean_pos < -pos_th:
+        #     conf["mr_gap_mean"] += delta_gap
+
+        # elif mean_pos > pos_th:
+        #     conf["mr_gap_mean"] -= delta_gap
+
+        # mean_gap = conf["mr_gap_mean"]
+
+
+        market_mid = (max(depth.buy_orders) + min(depth.sell_orders)) / 2
+        gap = market_mid - implied_mid
+                
+        if not hasattr(self, 'mr_win'):
+            self.mr_win = collections.deque()
+            
+        if len(self.mr_win) == self.params[Product.MACARONS]["mr_gap_win_sz"]:
+            self.mr_win.popleft()
+        self.mr_win.append(gap)
+
+        mean_gap = sum(self.mr_win)/len(self.mr_win)
+
+        
+        upper = mean_gap + conf["mr_band_width"] 
+        lower = mean_gap - conf["mr_band_width"]
+
+    
+        # self.debug_saver(gap, 'gap3.csv')
+
+        if gap > upper and pos > -limit:
+            trade_qty = clamp(conf["mr_trade_qty"], 0, limit + pos)
+           
+            if trade_qty:
+                orders.append(
+                    Order(Product.MACARONS, max(depth.buy_orders), -trade_qty)
+                )
+                pos -= trade_qty
+
+
+        elif gap < lower and pos < limit:
+            trade_qty = clamp(conf["mr_trade_qty"], 0, limit - pos)
+            if trade_qty:
+                
+                orders.append(
+                    Order(Product.MACARONS, min(depth.sell_orders), trade_qty)
+                )
+                pos += trade_qty
+
+        # print(gap)
+        # self.debug_saver(gap, 'gap3.csv')
+        return orders
+
+
     def run(self, state: TradingState):
+
         traderObject = {}
         if state.traderData != None and state.traderData != "":
             traderObject = jsonpickle.decode(state.traderData)
@@ -1219,5 +1325,40 @@ class Trader:
             else:
                 pass
              
+
+        # -----------round 4 ---------------
+        # Just to avoid stupid things happen
+        # tdata: Dict = jsonpickle.decode(state.traderData) if state.traderData else {}
+        conversions: int = 0
+
+
+        if (
+            Product.MACARONS in state.order_depths
+            and Product.MACARONS in state.observations.conversionObservations
+        ):
+            
+            orders: Order = []
+            depth = state.order_depths[Product.MACARONS]
+            obs = state.observations.conversionObservations[Product.MACARONS]
+            pos = state.position.get(Product.MACARONS, 0)
+
+ 
+            # conversions = clamp(-pos, -self.CONVERSION_LIMIT, self.CONVERSION_LIMIT)
+            pos += conversions
+
+            implied_bid, implied_ask = self.implied_bid_ask(obs)
+            implied_mid = (implied_bid + implied_ask) / 2
+
+            # 3) mean‑reversion
+            mr = self._quote_mean_reversion(depth, implied_mid, pos)
+            orders += mr
+
+            # self.debug_saver(pos, "pos3.csv")
+
+            result[Product.MACARONS] = orders
+
+            # leave the rest to conversion (±10 per tick)
+            
+
         traderDataEncoded = jsonpickle.encode(traderObject)
-        return result, 1, traderDataEncoded
+        return result, conversions, traderDataEncoded

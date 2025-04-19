@@ -12,7 +12,6 @@ class Product:
 # === PARAMETERS ===
 PARAMS = {
     Product.MACARONS: {
-        "mr_gap_mean": 8.61,
         "mr_band_width": 1,
         "mr_trade_qty": 75,
         "mr_gap_win_sz": 50
@@ -32,6 +31,8 @@ def implied_bid_ask(obs: ConversionObservation) -> Tuple[float, float]:
     bid = obs.bidPrice - obs.exportTariff - obs.transportFees - 0.1
     ask = obs.askPrice + obs.importTariff + obs.transportFees
     return bid, ask
+
+
 
 class Trader:
     def __init__(self, params: Dict = None):
@@ -138,12 +139,7 @@ class Trader:
             obs = state.observations.conversionObservations[Product.MACARONS]
             pos = state.position.get(Product.MACARONS, 0)
 
-            if state.timestamp < 50000:
-                PARAMS[Product.MACARONS]["mr_gap_mean"] = 7.29
-            else:
-                PARAMS[Product.MACARONS]["mr_gap_mean"] = 8.47
-
-
+ 
             # conversions = clamp(-pos, -CONVERSION_LIMIT, CONVERSION_LIMIT)
             pos += conversions
 
