@@ -16,11 +16,11 @@ PARAMS = {
     Product.MACA:{
         "make_edge": 2,
         "make_min_edge": 1,
-        "make_probability": 0.566,
+        "make_probability": 0.1,
         "init_make_edge": 2,
         "min_edge": 0.5,
-        "volume_avg_timestamp": 5,
-        "volume_bar": 75,
+        "volume_avg_timestamp": 10,
+        "volume_bar": 25,
         "dec_edge_discount": 0.8,
         "step_size":0.5
     }
@@ -33,7 +33,7 @@ class Trader:
             params = PARAMS
         self.params = params
 
-        self.LIMIT = {Product.MACA: 70}
+        self.LIMIT = {Product.MACA: 75}
 
     def maca_implied_bid_ask(
         self,
@@ -93,6 +93,7 @@ class Trader:
         adap_edge: float,
         position: int
     ) -> (List[Order], int, int):
+        
         orders: List[Order] = []
         position_limit = self.LIMIT[Product.MACA]
         buy_order_volume = 0
@@ -105,6 +106,7 @@ class Trader:
         ask = implied_ask + adap_edge
 
         foreign_mid = (observation.askPrice + observation.bidPrice) / 2
+
         aggressive_ask = foreign_mid - 1.6
 
         if aggressive_ask > implied_ask:

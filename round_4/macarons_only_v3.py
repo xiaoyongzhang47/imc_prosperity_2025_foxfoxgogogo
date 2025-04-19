@@ -11,18 +11,22 @@ class Product:
 # === YOUR ORIGINAL PARAMS PLUS FIXED‐μ/σ FOR MR ===
 PARAMS = {
     Product.MACARONS: {
-        "init_make_edge": 2.0,
+        # dynamical edging:
+        "init_make_edge": 0.1,
         "step_size": 0.5,
-        "min_edge": 0.5,
-        "volume_bar": 15,
+        "min_edge": 0.25 ,
+
+        "volume_bar": 30,
         "dec_edge_discount": 0.80,
         "volume_avg_window": 10,
-        "take_edge": 0.75,
+        "take_edge": 0.25,
+        
         # fixed historical gap stats:
-        "mr_gap_mean": 6.36117,
+        "mr_gap_mean": 6.6,
         "mr_gap_std": 0.6,
-        "mr_band_k": 1.0,
-        "mr_trade_qty": 10,
+        "mr_band_k": 2.0,
+        "mr_trade_qty": 35,
+
     }
 }
 
@@ -59,7 +63,7 @@ class Trader:
         if len(cache["fills"]) < conf["volume_avg_window"] or cache["optimised"]:
             return cache["edge"]
         
-        print(cache["fills"])
+        
         
         avg_fill = np.mean(cache["fills"])
         edge = cache["edge"]
@@ -94,11 +98,16 @@ class Trader:
         take_width = conf["take_edge"]
 
         # aggressive take
+
         if depth.sell_orders:
             best_ask = min(depth.sell_orders)
             ask_vol = -depth.sell_orders[best_ask]
+
+
             if best_ask < implied_bid - take_width and pos < limit:
                 qty = clamp(ask_vol, 0, limit - pos)
+
+                
                 if qty:
                     orders.append(Order(Product.MACARONS, best_ask, qty))
                     pos += qty
@@ -106,17 +115,22 @@ class Trader:
         if depth.buy_orders:
             best_bid = max(depth.buy_orders)
             bid_vol = depth.buy_orders[best_bid]
+
             if best_bid > implied_ask + take_width and pos > -limit:
                 qty = clamp(bid_vol, 0, limit + pos)
+
                 if qty:
                     orders.append(Order(Product.MACARONS, best_bid, -qty))
+
                     pos -= qty
 
         # passive quotes
         passive_bid = round(implied_bid - edge)
         passive_ask = round(implied_ask + edge)
+
         bid_qty = clamp(limit - pos, 0, conf["volume_bar"])
         ask_qty = clamp(limit + pos, 0, conf["volume_bar"])
+
         if bid_qty:
             orders.append(Order(Product.MACARONS, passive_bid, bid_qty))
         if ask_qty:
@@ -142,8 +156,10 @@ class Trader:
 
         mean_gap = conf["mr_gap_mean"]
         std_gap = conf["mr_gap_std"] or 1.0
+
         upper = mean_gap + conf["mr_band_k"] * std_gap
         lower = mean_gap - conf["mr_band_k"] * std_gap
+        
         qty = conf["mr_trade_qty"]
 
         if gap > upper and pos > -limit:
@@ -153,6 +169,7 @@ class Trader:
                     Order(Product.MACARONS, max(depth.buy_orders), -trade_qty)
                 )
                 pos -= trade_qty
+
         elif gap < lower and pos < limit:
             trade_qty = clamp(qty, 0, limit - pos)
             if trade_qty:
@@ -176,24 +193,22 @@ class Trader:
             obs = state.observations.conversionObservations[Product.MACARONS]
             pos = state.position.get(Product.MACARONS, 0)
 
-            
+            conversions = clamp(-pos, CONVERSION_LIMIT, CONVERSION_LIMIT)
+
+            pos += conversions
 
             edge = self._adapt_edge(tdata, pos)
 
-            
             implied_bid, implied_ask = implied_bid_ask(obs)
             implied_mid = (implied_bid + implied_ask) / 2
 
             orders: Order =[]
 
             orders += self._quote_mm(depth, obs, pos, edge)
-
             orders += self._quote_mean_reversion(depth, implied_mid, pos)
 
-
-
             results[Product.MACARONS] = orders
-            # **unchanged**: flatten remaining position via conversion ≤ ±10
-            conversions = clamp(abs(pos), 0, CONVERSION_LIMIT)
+
+
 
         return results, conversions, jsonpickle.encode(tdata)
