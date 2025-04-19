@@ -222,6 +222,7 @@ class Trader:
 
         # Hedge with tilt (always)
         rock_pos = state.position.get(Product.VOLCANICROCK, 0)
+        
         hedge = self.compute_volcanic_rock_hedge_orders(vr_depth, rock_pos, net_delta)
         if hedge:
             result[Product.VOLCANICROCK] = hedge
