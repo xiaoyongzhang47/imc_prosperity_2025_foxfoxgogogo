@@ -47,9 +47,9 @@ This repository contains our trading algorithms for the first three rounds of th
 
 **Approach:**  
 - We performed linear regression on mid-price data to estimate  
-  \[
+  $$
     P_{\text{basket}} = \alpha + \beta\,P_{\text{base}}
-  \]  
+  $$  
 - Orders were placed when the basket leg deviated from its fair price as predicted by the regression.
 
 ---
