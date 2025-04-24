@@ -6,7 +6,7 @@
 ---
 
 ## Overview  
-This repository contains our trading algorithms for the first three rounds of the 2025 IMC Prosperity Competition. We are both physics PhD candidates—Hanchen focused on microstructure research, coding, and the final write-up; Xiaoyong focused on global price-change structure and coding. Although the full competition spans five rounds, we only completed Rounds 1–3; Round 4 code is partially tuned, and Round 5 code is omitted due to time constraints.
+This repository contains our trading algorithms for the first three rounds of the 2025 IMC Prosperity Competition. We are both physics PhD candidates—Hanchen focused on microstructure research, coding, and the final write-up; Xiaoyong focused on global price-change structure and coding. Although the full competition spans five rounds, we only completed Rounds 1–3; Round 4 code is partially tuned, and Round 5 code is omitted due to time schedule conflicts.
 
 ---
 
