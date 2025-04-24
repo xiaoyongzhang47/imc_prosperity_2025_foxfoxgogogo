@@ -71,12 +71,12 @@ This repository contains our trading algorithms for the first three rounds of th
 
 ### Round 4: Luxury Goods Arbitrage *(Partially Tuned)*  
 **Product introduced:**  
-- `MAGNIFICENT_MACARONS` (Position limit 75; Conversion limit 10)  [oai_citation_attribution:10‡IMC Prosperity](https://imc-prosperity.notion.site/Round-4-19ee8453a0938112aa5fd7f0d060ffe6)  
+- `MAGNIFICENT_MACARONS` (limit 75; conversion limit 10)  [oai_citation_attribution:0‡imc-prosperity.notion.site](https://imc-prosperity.notion.site/Round-4-19ee8453a0938112aa5fd7f0d060ffe6)  
 
 **Challenge & Hint:**  
 - MACARON prices depend on sunlight, sugar costs, tariffs, and storage.  
-- Identify the **Critical Sunlight Index (CSI)**: Below CSI → panic-driven price spikes; above CSI → mean-reversion around fair value  [oai_citation_attribution:11‡IMC Prosperity](https://imc-prosperity.notion.site/Round-4-19ee8453a0938112aa5fd7f0d060ffe6).  
-- Our code checks for profitable buy/sell signals but tuning was limited by time.
+- We tried to directly calculate the effective profit of the domestic price and compare it with the market mid‐price to determine whether it is overpriced or underpriced.  [oai_citation_attribution:1‡imc-prosperity.notion.site](https://imc-prosperity.notion.site/Round-4-19ee8453a0938112aa5fd7f0d060ffe6)  
+- Our code then flags profitable buy/sell signals, but tuning was limited by time.
 
 ---
 
